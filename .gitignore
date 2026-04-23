@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Rust/Tauri build artifacts
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# Frontend build artifacts
+dist/
+
+# IDE and System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Gemini/Aion specific
+.aionrs/
+.gemini/
+
+# Environment variables
+.env
+.env.*
