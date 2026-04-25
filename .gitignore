@@ -1,10 +1,8 @@
 # Dependencies
 node_modules/
-package-lock.json
 
 # Rust/Tauri build artifacts
 src-tauri/target/
-src-tauri/Cargo.lock
 
 # Frontend build artifacts
 dist/
