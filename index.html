@@ -6,8 +6,18 @@
   <title>MarkFlow</title>
 </head>
 <body>
-  <div id="titlebar"><div id="agent-dot"></div></div>
-  <div id="editor"></div>
+  <div id="titlebar">
+    <div id="agent-dot"></div>
+    <button id="outline-toggle" title="Toggle Outline (Ctrl+Shift+O)">&#8801;</button>
+  </div>
+  <div id="editor-layout">
+    <div id="editor"></div>
+    <aside id="outline-sidebar" class="outline-hidden">
+      <div class="outline-header">Outline</div>
+      <div id="outline-tree"></div>
+      <div class="outline-empty" id="outline-empty">No headings found</div>
+    </aside>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

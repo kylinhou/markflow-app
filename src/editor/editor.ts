@@ -1,5 +1,7 @@
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx, remarkPluginsCtx } from '@milkdown/kit/core'
 import { DOMSerializer } from '@milkdown/kit/prose/model'
+import type { EditorView } from '@milkdown/kit/prose/view'
+import { emit } from '@tauri-apps/api/event'
 import remarkBreaks from 'remark-breaks'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
@@ -12,6 +14,11 @@ import { htmlView } from './html-view'
 import '@milkdown/kit/prose/view/style/prosemirror.css'
 
 let editorInstance: Editor | null = null
+let editorViewInstance: EditorView | null = null
+
+export function getEditorView(): EditorView | null {
+  return editorViewInstance
+}
 
 const inlineStyles: Record<string, string> = {
   'h1': 'font-size:1.8em;font-weight:700;margin:1em 0 .5em;padding-bottom:.3em;border-bottom:1px solid #eee;',
@@ -73,9 +80,12 @@ export async function createEditor(
       ctx.set(rootCtx, root)
       ctx.set(defaultValueCtx, defaultContent)
       ctx.set(remarkPluginsCtx, [{ plugin: remarkBreaks, options: {} }])
+      // Store editor view reference for outline to use
+      editorViewInstance = ctx.get(editorViewCtx)
       if (onChange) {
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           onChange(markdown)
+          emit('markdown-updated', { markdown }).catch(() => {})
         })
       }
     })

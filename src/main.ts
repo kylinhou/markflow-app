@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { createEditor, getMarkdown, getHTML, setMarkdown } from './editor/editor'
 import { applyTheme, loadSavedTheme } from './themes/theme-manager'
+import { initOutline, updateOutline, toggleSidebar, restoreOutlineState } from './editor/outline'
 import './themes/base.css'
 
 // Types
@@ -31,6 +32,31 @@ async function init(): Promise<void> {
 
   // Create editor
   await createEditor('editor')
+
+  // Restore outline sidebar visibility preference
+  restoreOutlineState()
+
+  // Initialize outline with current document
+  initOutline()
+
+  // Update outline on every content change
+  listen('markdown-updated', () => {
+    updateOutline()
+  })
+
+  // Keyboard shortcut: Ctrl+Shift+O toggles outline sidebar
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+      e.preventDefault()
+      toggleSidebar()
+    }
+  })
+
+  // Outline toggle button in titlebar
+  const toggleBtn = document.getElementById('outline-toggle')
+  toggleBtn?.addEventListener('click', () => {
+    toggleSidebar()
+  })
 
   // Menu event listeners
   listen('menu-open', async () => {
