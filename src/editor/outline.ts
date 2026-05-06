@@ -271,9 +271,10 @@ function updateActiveHighlight(id: string): void {
 
 /** Initialize outline after editor is ready */
 export function initOutline(): void {
-  // Milkdown's DOM rendering is async — wait for browser to paint
-  // before attempting to extract headings from the rendered DOM.
-  setTimeout(() => {
+  // Delay is minimal now that editorViewInstance is correctly assigned
+  // after create() completes. A small rAF delay lets the browser paint
+  // the heading DOM elements before we query them.
+  requestAnimationFrame(() => {
     const view = getEditorView()
     console.log('[outline] initOutline fired', { hasView: !!view })
     if (!view) {
@@ -286,7 +287,7 @@ export function initOutline(): void {
     console.log('[outline] buildTree, root nodes:', currentTree.length)
     renderTree(currentTree)
     setupScrollSpy(headings)
-  }, 500)
+  })
 }
 
 /** Debounced update — call this on every content change */
