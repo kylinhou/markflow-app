@@ -9,6 +9,7 @@
  */
 
 import { getEditorView } from './editor'
+import { TextSelection } from 'prosemirror-state'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -169,17 +170,16 @@ function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
   if (!view) return
 
-  const { state, dispatch } = view
+  const { state, dispatch, dom } = view
   const pos = item.pos
 
-  // Set selection to the heading position
-  const tr = state.tr.setSelection(state.selection.constructor.near(state.doc.resolve(pos)))
-  if (dispatch) {
-    dispatch(tr)
-  }
+  // Create a TextSelection at the heading position and dispatch it
+  const sel = TextSelection.near(state.doc.resolve(pos))
+  const tr = state.tr.setSelection(sel)
+  if (dispatch) dispatch(tr)
 
-  // Let ProseMirror scroll the editor to show the selected heading
-  view.scrollIntoView(state.selection.from)
+  // Scroll the editor DOM element so the heading is visible
+  dom.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
@@ -273,6 +273,7 @@ export function initOutline(): void {
       currentTree = buildTree(headings)
       renderTree(currentTree)
       setupScrollSpy(headings)
+      setupResizeHandle()
     })
   })
 }
@@ -301,7 +302,7 @@ export function toggleSidebar(): void {
   localStorage.setItem('markflow-outline-visible', hidden ? 'false' : 'true')
 }
 
-/** Restore sidebar state from localStorage */
+/** Restore sidebar state and width from localStorage */
 export function restoreOutlineState(): void {
   const sidebar = document.getElementById('outline-sidebar')
   const layout = document.getElementById('editor-layout')
@@ -312,4 +313,50 @@ export function restoreOutlineState(): void {
     sidebar.classList.add('outline-hidden')
     layout.classList.add('outline-full')
   }
+
+  // Restore user-set width
+  const savedWidth = localStorage.getItem('markflow-outline-width')
+  if (savedWidth) {
+    sidebar.style.setProperty('--outline-width', savedWidth + 'px')
+  }
+}
+
+// ─── Resize Handle ─────────────────────────────────────────────────────────
+
+/** Set up the draggable resize handle between editor and sidebar */
+function setupResizeHandle(): void {
+  const handle = document.getElementById('resize-handle')
+  const sidebar = document.getElementById('outline-sidebar')
+  if (!handle || !sidebar) return
+
+  let dragging = false
+  let startX = 0
+  let startWidth = 0
+
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
+    if (sidebar.classList.contains('outline-hidden')) return
+    dragging = true
+    startX = e.clientX
+    startWidth = sidebar.offsetWidth
+    handle.classList.add('dragging')
+    document.body.style.cursor = 'ew-resize'
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!dragging) return
+    const dx = e.clientX - startX
+    const newWidth = Math.min(480, Math.max(160, startWidth + dx))
+    sidebar.style.setProperty('--outline-width', newWidth + 'px')
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return
+    dragging = false
+    handle.classList.remove('dragging')
+    document.body.style.cursor = ''
+    // Save width to localStorage
+    const w = sidebar.offsetWidth
+    localStorage.setItem('markflow-outline-width', String(w))
+  })
 }
