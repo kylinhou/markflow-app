@@ -38,42 +38,33 @@ function generateId(index: number): string {
   return `outline-heading-${index}`
 }
 
-/** Walk doc and extract all heading nodes with their positions */
+/**
+ * Walk the ProseMirror doc and extract all heading nodes.
+ * Uses node.textContent directly — no DOM fallback needed.
+ * Empty headings (no text) are skipped.
+ */
 function extractHeadings(): HeadingItem[] {
   const view = getEditorView()
-  if (!view) {
-    console.warn('[outline] extractHeadings: no editor view')
-    return []
-  }
-
-  const doc = view.state.doc
-  console.log('[outline] doc content size:', doc.content.size, '| firstChild:', doc.firstChild?.type.name)
+  if (!view) return []
 
   const items: HeadingItem[] = []
-  let index = 0
+  let counter = 0
 
-  doc.descendants((node, pos) => {
+  view.state.doc.descendants((node, pos) => {
     if (node.type.name === 'heading') {
       const level = node.attrs.level as number
-      // Use the editor's serializer to get plain text from the heading node
-      const dom = view.dom as HTMLElement
-      const headingEls = dom.querySelectorAll('h1, h2, h3, h4, h5, h6')
-      const el = headingEls[index]
-      const text = el ? el.textContent?.trim() ?? '' : node.textContent.trim()
-      if (text) {
-        console.log('[outline] found heading:', { level, text: text.slice(0, 30), pos })
-        items.push({
-          id: generateId(index),
-          text: text.length > 60 ? text.slice(0, 60) + '…' : text,
-          level,
-          pos,
-        })
-        index++
-      }
+      const text = node.textContent.trim()
+      if (!text) return
+      items.push({
+        id: generateId(counter),
+        text: text.length > 60 ? text.slice(0, 60) + '…' : text,
+        level,
+        pos,
+      })
+      counter++
     }
   })
 
-  console.log('[outline] extractHeadings total:', items.length)
   return items
 }
 
@@ -85,7 +76,6 @@ function buildTree(headings: HeadingItem[]): OutlineNode[] {
   for (const item of headings) {
     const node: OutlineNode = { item, children: [], collapsed: false }
 
-    // Pop stack until we find a node with lower level (or stack empties)
     while (stack.length > 0 && stack[stack.length - 1].item.level >= item.level) {
       stack.pop()
     }
@@ -133,7 +123,6 @@ function createOutlineItem(node: OutlineNode): HTMLElement {
   text.textContent = node.item.text
   el.appendChild(text)
 
-  // Click → scroll editor to this heading
   el.addEventListener('click', () => {
     scrollToHeading(node.item)
   })
@@ -144,17 +133,14 @@ function createOutlineItem(node: OutlineNode): HTMLElement {
 function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
   const treeEl = document.getElementById('outline-tree')
   const emptyEl = document.getElementById('outline-empty')
-  console.log('[outline] renderTree called, nodes:', nodes.length, 'treeEl exists:', !!treeEl)
   if (!treeEl) return
 
   if (nodes.length === 0) {
     treeEl.innerHTML = ''
     emptyEl?.classList.add('visible')
-    console.log('[outline] renderTree: showing empty state')
     return
   }
 
-  console.log('[outline] renderTree: rendering', nodes.length, 'root nodes')
   emptyEl?.classList.remove('visible')
 
   if (!container) {
@@ -165,8 +151,6 @@ function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
   for (const node of nodes) {
     const el = createOutlineItem(node)
     container.appendChild(el)
-    console.log('[outline] renderTree: appended item', node.item.text, 'level:', node.item.level)
-
     if (node.children.length > 0 && !node.collapsed) {
       renderTree(node.children, container)
     }
@@ -179,39 +163,33 @@ function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
   if (!view) return
 
-  try {
-    // Find the heading DOM element with matching data-outline-id and scroll to it
-    const el = view.dom.querySelector(`[data-outline-id="${item.id}"]`) as HTMLElement | null
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  } catch (e) {
-    console.warn('[outline] Failed to scroll to heading:', e)
+  const el = view.dom.querySelector(`[data-outline-id="${item.id}"]`) as HTMLElement | null
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
 
-/** Assign data-id attributes to heading DOM elements so IntersectionObserver works */
+/**
+ * Assign data-outline-id attributes to heading DOM elements so IntersectionObserver
+ * can identify which heading is visible. We read IDs from the items we already
+ * extracted (which were assigned in order), then walk the DOM h1-h6 elements
+ * and tag them sequentially — this avoids any index mismatch between the
+ * ProseMirror doc order and DOM element order.
+ */
 function syncHeadingIds(headings: HeadingItem[]): void {
   const view = getEditorView()
-  if (!view) return
+  if (!view || headings.length === 0) return
 
   const dom = view.dom
-  const headingElements = dom.querySelectorAll('h1, h2, h3, h4, h5, h6')
+  const headingEls = Array.from(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+    .filter(el => el.textContent?.trim())
 
-  // Build a map: pos → id
-  const posToId = new Map<number, string>()
-  headings.forEach(h => posToId.set(h.pos, h.id))
-
-  let headingIndex = 0
-  view.state.doc.descendants((node, pos) => {
-    if (node.type.name === 'heading' && node.textContent.trim()) {
-      const el = headingElements[headingIndex]
-      if (el && posToId.has(pos)) {
-        el.setAttribute('data-outline-id', posToId.get(pos)!)
-      }
-      headingIndex++
+  headings.forEach((item, i) => {
+    const el = headingEls[i]
+    if (el) {
+      el.setAttribute('data-outline-id', item.id)
     }
   })
 }
@@ -238,7 +216,6 @@ function setupScrollSpy(headings: HeadingItem[]): void {
 
   observer = new IntersectionObserver(
     (entries) => {
-      // Find the topmost intersecting heading
       const visible = entries
         .filter(e => e.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
@@ -269,24 +246,21 @@ function updateActiveHighlight(id: string): void {
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-/** Initialize outline after editor is ready */
+/**
+ * Initialize outline after editor is ready.
+ * Uses double rAF to ensure Milkdown's DOM rendering has settled before
+ * we query heading elements — single rAF can race with async rendering.
+ */
 export function initOutline(): void {
-  // Delay is minimal now that editorViewInstance is correctly assigned
-  // after create() completes. A small rAF delay lets the browser paint
-  // the heading DOM elements before we query them.
   requestAnimationFrame(() => {
-    const view = getEditorView()
-    console.log('[outline] initOutline fired', { hasView: !!view })
-    if (!view) {
-      console.warn('[outline] no editor view, skipping')
-      return
-    }
-    const headings = extractHeadings()
-    console.log('[outline] extractHeadings:', headings.length, headings.map(h => ({ text: h.text, level: h.level })))
-    currentTree = buildTree(headings)
-    console.log('[outline] buildTree, root nodes:', currentTree.length)
-    renderTree(currentTree)
-    setupScrollSpy(headings)
+    requestAnimationFrame(() => {
+      const view = getEditorView()
+      if (!view) return
+      const headings = extractHeadings()
+      currentTree = buildTree(headings)
+      renderTree(currentTree)
+      setupScrollSpy(headings)
+    })
   })
 }
 
@@ -294,6 +268,8 @@ export function initOutline(): void {
 export function updateOutline(): void {
   if (debounceTimer) clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => {
+    const view = getEditorView()
+    if (!view) return
     const headings = extractHeadings()
     currentTree = buildTree(headings)
     renderTree(currentTree)
@@ -309,8 +285,6 @@ export function toggleSidebar(): void {
 
   const hidden = sidebar.classList.toggle('outline-hidden')
   layout.classList.toggle('outline-full', hidden)
-
-  // Save preference
   localStorage.setItem('markflow-outline-visible', hidden ? 'false' : 'true')
 }
 

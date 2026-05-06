@@ -150,4 +150,7 @@ export function getHTML(): string {
 export function setMarkdown(content: string): void {
   if (!editorInstance) return
   editorInstance.action(replaceAll(content))
+  // Emit event so outline updates (replaceAll is programmatic, not typed by user,
+  // so the listener.markdownUpdated callback in createEditor() never fires here)
+  emit('markdown-updated', { markdown: content }).catch(() => {})
 }
