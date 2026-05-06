@@ -47,18 +47,21 @@ function extractHeadings(): HeadingItem[] {
   }
 
   const doc = view.state.doc
-  console.log('[outline] doc node count:', doc.content.size, '| first child type:', doc.firstChild?.type.name)
+  console.log('[outline] doc content size:', doc.content.size, '| firstChild:', doc.firstChild?.type.name)
 
   const items: HeadingItem[] = []
   let index = 0
 
   doc.descendants((node, pos) => {
-    console.log('[outline] visiting node type:', node.type.name, '| isHeading:', node.type.name === 'heading', '| text:', JSON.stringify(node.textContent.slice(0, 30)))
     if (node.type.name === 'heading') {
       const level = node.attrs.level as number
-      const text = node.textContent.trim()
-      console.log('[outline] found heading! level:', level, 'text:', text)
+      // Use the editor's serializer to get plain text from the heading node
+      const dom = view.dom as HTMLElement
+      const headingEls = dom.querySelectorAll('h1, h2, h3, h4, h5, h6')
+      const el = headingEls[index]
+      const text = el ? el.textContent?.trim() ?? '' : node.textContent.trim()
       if (text) {
+        console.log('[outline] found heading:', { level, text: text.slice(0, 30), pos })
         items.push({
           id: generateId(index),
           text: text.length > 60 ? text.slice(0, 60) + '…' : text,
@@ -70,7 +73,7 @@ function extractHeadings(): HeadingItem[] {
     }
   })
 
-  console.log('[outline] extractHeadings total items:', items.length)
+  console.log('[outline] extractHeadings total:', items.length)
   return items
 }
 
