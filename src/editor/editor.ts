@@ -80,8 +80,6 @@ export async function createEditor(
       ctx.set(rootCtx, root)
       ctx.set(defaultValueCtx, defaultContent)
       ctx.set(remarkPluginsCtx, [{ plugin: remarkBreaks, options: {} }])
-      // Store editor view reference for outline to use
-      editorViewInstance = ctx.get(editorViewCtx)
       if (onChange) {
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           onChange(markdown)
@@ -96,6 +94,12 @@ export async function createEditor(
     .use(clipboard)
     .use(htmlView)
     .create()
+
+  // Get editorViewInstance AFTER create() completes — editorViewCtx is only
+  // available once the editor is fully initialized (not during .config())
+  editorInstance.action((ctx) => {
+    editorViewInstance = ctx.get(editorViewCtx)
+  })
 
   // Enhance clipboard with inline styles for rich text paste (e.g. WeChat)
   root.addEventListener('copy', enhanceClipboard)
