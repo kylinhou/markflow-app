@@ -255,7 +255,14 @@ function updateActiveHighlight(id: string): void {
 
 /** Initialize outline after editor is ready */
 export function initOutline(): void {
-  updateOutline()
+  // Milkdown's DOM rendering is async — wait a bit for the browser to paint
+  // before attempting to extract headings from the rendered DOM.
+  setTimeout(() => {
+    const headings = extractHeadings()
+    currentTree = buildTree(headings)
+    renderTree(currentTree)
+    setupScrollSpy(headings)
+  }, 100)
 }
 
 /** Debounced update — call this on every content change */
