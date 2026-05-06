@@ -41,15 +41,23 @@ function generateId(index: number): string {
 /** Walk doc and extract all heading nodes with their positions */
 function extractHeadings(): HeadingItem[] {
   const view = getEditorView()
-  if (!view) return []
+  if (!view) {
+    console.warn('[outline] extractHeadings: no editor view')
+    return []
+  }
+
+  const doc = view.state.doc
+  console.log('[outline] doc node count:', doc.content.size, '| first child type:', doc.firstChild?.type.name)
 
   const items: HeadingItem[] = []
   let index = 0
 
-  view.state.doc.descendants((node, pos) => {
+  doc.descendants((node, pos) => {
+    console.log('[outline] visiting node type:', node.type.name, '| isHeading:', node.type.name === 'heading', '| text:', JSON.stringify(node.textContent.slice(0, 30)))
     if (node.type.name === 'heading') {
       const level = node.attrs.level as number
       const text = node.textContent.trim()
+      console.log('[outline] found heading! level:', level, 'text:', text)
       if (text) {
         items.push({
           id: generateId(index),
@@ -62,6 +70,7 @@ function extractHeadings(): HeadingItem[] {
     }
   })
 
+  console.log('[outline] extractHeadings total items:', items.length)
   return items
 }
 
@@ -132,14 +141,17 @@ function createOutlineItem(node: OutlineNode): HTMLElement {
 function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
   const treeEl = document.getElementById('outline-tree')
   const emptyEl = document.getElementById('outline-empty')
+  console.log('[outline] renderTree called, nodes:', nodes.length, 'treeEl exists:', !!treeEl)
   if (!treeEl) return
 
   if (nodes.length === 0) {
     treeEl.innerHTML = ''
     emptyEl?.classList.add('visible')
+    console.log('[outline] renderTree: showing empty state')
     return
   }
 
+  console.log('[outline] renderTree: rendering', nodes.length, 'root nodes')
   emptyEl?.classList.remove('visible')
 
   if (!container) {
@@ -150,6 +162,7 @@ function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
   for (const node of nodes) {
     const el = createOutlineItem(node)
     container.appendChild(el)
+    console.log('[outline] renderTree: appended item', node.item.text, 'level:', node.item.level)
 
     if (node.children.length > 0 && !node.collapsed) {
       renderTree(node.children, container)
@@ -255,14 +268,22 @@ function updateActiveHighlight(id: string): void {
 
 /** Initialize outline after editor is ready */
 export function initOutline(): void {
-  // Milkdown's DOM rendering is async — wait a bit for the browser to paint
+  // Milkdown's DOM rendering is async — wait for browser to paint
   // before attempting to extract headings from the rendered DOM.
   setTimeout(() => {
+    const view = getEditorView()
+    console.log('[outline] initOutline fired', { hasView: !!view })
+    if (!view) {
+      console.warn('[outline] no editor view, skipping')
+      return
+    }
     const headings = extractHeadings()
+    console.log('[outline] extractHeadings:', headings.length, headings.map(h => ({ text: h.text, level: h.level })))
     currentTree = buildTree(headings)
+    console.log('[outline] buildTree, root nodes:', currentTree.length)
     renderTree(currentTree)
     setupScrollSpy(headings)
-  }, 100)
+  }, 500)
 }
 
 /** Debounced update — call this on every content change */
