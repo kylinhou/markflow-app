@@ -93,9 +93,38 @@ body:not(.outline-sidebar-visible) #editor {
 }
 
 #outline-sidebar:not(.outline-hidden) {
-  width: 240px;
-  min-width: 240px;
-  border-left-width: 1px;
+  width: var(--outline-width, 240px);
+  min-width: 160px;
+  max-width: 480px;
+}
+
+/* Resize handle — sits to the right of the sidebar, hidden when sidebar is closed */
+#resize-handle {
+  display: none;
+  width: 4px;
+  flex-shrink: 0;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background 0.2s;
+  position: relative;
+  z-index: 10;
+}
+
+#outline-sidebar ~ #resize-handle {
+  display: none;
+}
+
+#outline-sidebar:not(.outline-hidden) ~ #resize-handle {
+  display: block;
+}
+
+#resize-handle:hover,
+#resize-handle.dragging {
+  background: var(--link-color);
+}
+
+#resize-handle.dragging ~ * {
+  pointer-events: none;
 }
 
 .outline-header {
