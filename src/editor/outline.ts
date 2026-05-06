@@ -159,14 +159,27 @@ function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
 
 // ─── Navigation ─────────────────────────────────────────────────────────────
 
+/**
+ * Navigate to a heading by setting the ProseMirror selection at the heading's
+ * document position, then letting ProseMirror scroll the editor view to it.
+ * This is more reliable than DOM querySelector because Milkdown may wrap or
+ * transform heading elements in ways that break attribute-based lookups.
+ */
 function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
   if (!view) return
 
-  const el = view.dom.querySelector(`[data-outline-id="${item.id}"]`) as HTMLElement | null
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const { state, dispatch } = view
+  const pos = item.pos
+
+  // Set selection to the heading position
+  const tr = state.tr.setSelection(state.selection.constructor.near(state.doc.resolve(pos)))
+  if (dispatch) {
+    dispatch(tr)
   }
+
+  // Let ProseMirror scroll the editor to show the selected heading
+  view.scrollIntoView(state.selection.from)
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
