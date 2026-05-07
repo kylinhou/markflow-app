@@ -170,16 +170,17 @@ function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
   if (!view) return
 
-  const { state, dispatch, dom } = view
   const pos = item.pos
 
-  // Create a TextSelection at the heading position and dispatch it
-  const sel = TextSelection.near(state.doc.resolve(pos))
-  const tr = state.tr.setSelection(sel)
-  if (dispatch) dispatch(tr)
+  // Create a TextSelection at the heading position
+  const sel = TextSelection.near(view.state.doc.resolve(pos))
+  const tr = view.state.tr.setSelection(sel)
+  // Mark the transaction so ProseMirror scrolls the selection into view
+  tr.scrollIntoView()
+  view.dispatch(tr)
 
-  // Scroll the editor DOM element so the heading is visible
-  dom.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // Focus the editor so the cursor is visible
+  view.focus()
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
