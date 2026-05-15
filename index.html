@@ -6,14 +6,17 @@
   <title>MarkFlow</title>
 </head>
 <body>
-  <div id="titlebar">
-    <div id="agent-dot"></div>
-    <button id="outline-toggle" title="Toggle Outline (Ctrl+Shift+O)">&#8801;</button>
-  </div>
-  <div id="tab-bar">
-    <div id="tab-list"></div>
-    <button id="tab-new" title="New Tab">+</button>
-  </div>
+  <!-- Unified header: tab list + actions in a single row -->
+  <header id="unified-header">
+    <div id="tab-container">
+      <div id="tab-list"></div>
+      <button id="tab-new" title="New Tab">+</button>
+    </div>
+    <div id="header-actions">
+      <button id="outline-toggle" title="Toggle Outline (Ctrl+Shift+O)">&#8803;</button>
+      <div id="agent-dot"></div>
+    </div>
+  </header>
   <div id="editor-layout">
     <div id="editor"></div>
     <aside id="outline-sidebar" class="outline-hidden">

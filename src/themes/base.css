@@ -19,24 +19,36 @@ body {
   flex-direction: column;
 }
 
-#titlebar {
+/* Unified header: tabs + actions in a single compact row */
+#unified-header {
   -webkit-app-region: drag;
-  height: 52px;
+  display: flex;
+  align-items: center;
+  height: 40px;
   flex-shrink: 0;
-  position: relative;
   border-bottom: 1px solid var(--border-color);
+  background: var(--bg-color);
+  /* Left padding clears the traffic-light / window controls area on macOS */
+  padding-left: 12px;
+}
+
+/* Actions group (outline toggle + agent dot) sits on the right,
+   marked no-drag so the drag region only covers the tab area. */
+#header-actions {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-right: 8px;
 }
 
 #agent-dot {
-  position: absolute;
-  top: 22px;
-  right: 16px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--text-muted);
   opacity: 0.3;
-  -webkit-app-region: no-drag;
   transition: background 0.3s ease, opacity 0.3s ease;
 }
 
@@ -57,44 +69,41 @@ body {
   50% { opacity: 1; transform: scale(1.05); }
 }
 
-/* ─── Tab Bar ──────────────────────────────────────────────────────────────── */
+/* ─── Tab Bar (inside unified header) ─────────────────────────────────── */
 
-#tab-bar {
+#tab-container {
+  flex: 1;               /* fill remaining width between header-actions and edge */
   display: flex;
   align-items: center;
-  height: 36px;
-  background: var(--bg-color);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-  padding: 0 4px;
+  overflow: hidden;     /* tabs that overflow are clipped, not scrolled */
   gap: 2px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  padding: 0 4px;
+  /* Allow the tab area to be dragged (no-drag is on #header-actions only) */
 }
 
 #tab-list {
-  flex: 1;               /* fill remaining width so horizontal scroll works */
   display: flex;
-  align-items: center;  /* keep tabs vertically centered in tab-bar */
-  overflow-x: auto;
+  align-items: center;  /* keep tabs vertically centered */
+  overflow-x: auto;     /* scroll individual tabs when they overflow */
   overflow-y: hidden;
   gap: 2px;
-  min-width: 0;          /* allow flex children to shrink below their min-width */
+  min-width: 0;         /* allow flex children to shrink below their min-width */
+  flex: 1;              /* take all available space in #tab-container */
 }
 
-#tab-bar::-webkit-scrollbar {
+#tab-list::-webkit-scrollbar {
   height: 0;
 }
 
 #tab-new {
   -webkit-app-region: no-drag;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   border-radius: 4px;
   cursor: pointer;
@@ -144,7 +153,7 @@ body {
 .tab.active::after {
   content: '';
   position: absolute;
-  bottom: 0;              /* extend 1px down to cover tab-bar's bottom border */
+  bottom: -1px;           /* extend 1px down to cover header's bottom border */
   left: 0;
   right: 0;
   height: 1px;
@@ -357,14 +366,10 @@ body:not(.outline-sidebar-visible) #editor {
 
 #outline-toggle {
   -webkit-app-region: no-drag;
-  position: absolute;
-  right: 48px;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--text-muted);
   padding: 4px 8px;
   border-radius: 4px;
