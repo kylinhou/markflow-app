@@ -625,85 +625,166 @@ body.theme-elegant #editor .ProseMirror table td {
 }
 
 body.theme-paper {
-  --bg-color: #fafafa;
-  --text-color: #24292f;
-  --text-muted: #767676;
-  --border-color: #e4e4e4;
-  --link-color: #0969da;
-  --code-bg: rgba(0, 0, 0, 0.04);
-  --code-block-bg: #f0f0f0;
-  --code-block-text: #24292f;
-  --blockquote-border: #e0e0e0;
-  --blockquote-bg: transparent;
-  --table-header-bg: #f5f5f5;
-  --table-border: #e4e4e4;
-  --selection-bg: rgba(9, 105, 218, 0.1);
-  --outline-width: 220px;
+  /* ── Midnight Blue palette ─────────────────────────────────────── */
+  --bg-color:          #0F111A;   /* deep cold navy — base layer      */
+  --surface-color:     #1A1D2B;   /* elevated card / code block        */
+  --text-color:        #E2E8F0;   /* primary — soft white             */
+  --text-muted:        #94A3B8;   /* secondary — blue-gray            */
+  --text-emphasis:     #FFFFFF;   /* pure white for key labels        */
+  --border-color:      #2D3245;   /* subtle separator                  */
+  --link-color:        #7C4DFF;   /* deep violet accent               */
+  --link-hover:        #5C9DFF;   /* bright blue on hover             */
+  --code-bg:           #1A1D2B;   /* surface card for inline code      */
+  --code-block-bg:     #14172A;   /* slightly darker than surface      */
+  --code-block-text:   #E2E8F0;
+  --blockquote-border: #7C4DFF;
+  --blockquote-bg:    transparent;
+  --table-header-bg:  #1A1D2B;
+  --table-border:     #2D3245;
+  --selection-bg:     rgba(124, 77, 255, 0.2);
+  --outline-width:    220px;
+
+  /* Typography */
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-color);
 }
 
-/* Ultra-minimal header: 40px, no shadows, tabs flush with header */
+/* ── Unified Header (40px, deep surface) ─────────────────────────────── */
 body.theme-paper #unified-header {
   height: 40px;
+  background: #0D0F1C;          /* darker than base to separate from editor */
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-color);
+  -webkit-app-region: drag;
 }
 
-/* Tabs: flush with header bottom, tiny rounded corners, hover-reveal close */
+body.theme-paper #header-actions {
+  background: #0D0F1C;
+  gap: 2px;
+  padding-right: 8px;
+}
+
+/* ── Agent dot ─────────────────────────────────────────────────────────── */
+body.theme-paper #agent-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.2;
+  animation: paper-breathe 3.5s ease-in-out infinite;
+}
+
+body.theme-paper #agent-dot.active {
+  background: var(--link-color);
+  opacity: 1;
+  animation: paper-breathe 2s ease-in-out infinite;
+}
+
+body.theme-paper #agent-dot.cooldown {
+  background: #34D399;
+  opacity: 0.75;
+  animation: none;
+}
+
+@keyframes paper-breathe {
+  0%, 100% { opacity: 0.2; transform: scale(0.9); }
+  50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+/* ── Tab Bar ──────────────────────────────────────────────────────────── */
+body.theme-paper #tab-container {
+  gap: 2px;
+}
+
+body.theme-paper #tab-list {
+  gap: 3px;
+}
+
+body.theme-paper #tab-new {
+  width: 22px;
+  height: 22px;
+  font-size: 15px;
+  color: var(--text-muted);
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+body.theme-paper #tab-new:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-emphasis);
+}
+
+/* Tabs: pill shape, 28px height, hover-reveal close */
 body.theme-paper .tab {
-  height: 26px;
-  border-radius: 6px 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 12px;
+  border-radius: 8px 8px 0 0;
   border: 1px solid transparent;
   border-bottom: none;
   background: transparent;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 450;
-  padding: 0 8px 0 10px;
-  gap: 5px;
-  max-width: 160px;
-  min-width: 72px;
+  white-space: nowrap;
+  cursor: pointer;
+  position: relative;
+  max-width: 170px;
+  min-width: 80px;
+  flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
 }
 
 body.theme-paper .tab:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-color);
 }
 
 body.theme-paper .tab.active {
-  background: var(--bg-color);
-  color: var(--text-color);
+  background: var(--surface-color);
+  color: var(--text-emphasis);
   border-color: var(--border-color);
-  border-bottom: none;
+  border-bottom: 1px solid var(--surface-color);  /* hide header border beneath */
 }
 
 body.theme-paper .tab.active::after {
-  display: none; /* tabs sit flush — no fake cover line needed */
+  display: none;
 }
 
-/* Dirty dot: 6px, accent blue, only visible on dirty tabs */
+/* Dirty dot: 6px accent violet */
 body.theme-paper .tab .tab-dirty {
+  display: none;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--link-color);
   flex-shrink: 0;
-  display: none;
 }
 
 body.theme-paper .tab.dirty .tab-dirty {
   display: block;
 }
 
-/* Close button: opacity 0 by default, shown on hover */
+/* Close: ghost button, visible on hover */
 body.theme-paper .tab .tab-close {
-  opacity: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
   font-size: 12px;
   color: var(--text-muted);
   flex-shrink: 0;
+  opacity: 0;
   transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
 
@@ -713,65 +794,72 @@ body.theme-paper .tab.active .tab-close {
 }
 
 body.theme-paper .tab .tab-close:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: var(--text-color);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-emphasis);
 }
 
-/* New tab button: minimal + */
-body.theme-paper #tab-new {
-  width: 22px;
-  height: 22px;
-  font-size: 15px;
-  color: var(--text-muted);
-  border-radius: 4px;
+/* ── Editor layout ──────────────────────────────────────────────────────── */
+body.theme-paper #editor-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-color);
 }
 
-body.theme-paper #tab-new:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text-color);
+body.theme-paper #editor {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 0;
+  background: var(--bg-color);
 }
 
-/* Editor: generous horizontal padding, editorial typography */
+/* ProseMirror: generous padding, editorial spacing */
 body.theme-paper #editor .ProseMirror {
-  font-size: 16px;
+  outline: none;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px 52px 80px;
+  min-height: calc(100vh - 80px);
+  font-size: 15px;
   line-height: 1.75;
   color: var(--text-color);
-  max-width: 740px;
-  margin: 0 auto;
-  padding: 48px 48px 80px;
-  min-height: calc(100vh - 80px);
 }
 
 body.theme-paper #editor .ProseMirror > * + * {
-  margin-top: 0.75em;
+  margin-top: 0.7em;
 }
 
-/* Headings: no borders, just weight + spacing */
+/* ── Typography ────────────────────────────────────────────────────────── */
 body.theme-paper #editor .ProseMirror h1 {
-  font-size: 1.9em;
-  font-weight: 700;
+  font-size: 1.75em;
+  font-weight: 650;
   margin-top: 1.8em;
   margin-bottom: 0.4em;
   line-height: 1.2;
-  border-bottom: none;
-  padding-bottom: 0;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.3em;
+  color: var(--text-emphasis);
 }
 
 body.theme-paper #editor .ProseMirror h2 {
-  font-size: 1.4em;
-  font-weight: 650;
+  font-size: 1.35em;
+  font-weight: 600;
   margin-top: 1.5em;
   margin-bottom: 0.4em;
   line-height: 1.3;
-  border-bottom: none;
-  padding-bottom: 0;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.2em;
+  color: var(--text-emphasis);
 }
 
 body.theme-paper #editor .ProseMirror h3 {
-  font-size: 1.15em;
+  font-size: 1.1em;
   font-weight: 600;
   margin-top: 1.2em;
   margin-bottom: 0.35em;
+  color: var(--text-emphasis);
 }
 
 body.theme-paper #editor .ProseMirror h4,
@@ -780,51 +868,183 @@ body.theme-paper #editor .ProseMirror h6 {
   font-weight: 600;
   margin-top: 1em;
   margin-bottom: 0.3em;
+  color: var(--text-emphasis);
 }
 
-/* Code: minimal pill style */
-body.theme-paper #editor .ProseMirror code {
-  background: var(--code-bg);
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 0.875em;
+body.theme-paper #editor .ProseMirror p {
+  margin: 0.45em 0;
   color: var(--text-color);
 }
 
+body.theme-paper #editor .ProseMirror strong {
+  font-weight: 650;
+  color: var(--text-emphasis);
+}
+
+/* ── Code ──────────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 0.875em;
+  background: var(--code-bg);
+  color: #A5B4FC;            /* soft indigo for inline code text */
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
 body.theme-paper #editor .ProseMirror pre {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
   background: var(--code-block-bg);
   color: var(--code-block-text);
-  padding: 14px 18px;
-  border-radius: 6px;
+  padding: 18px 22px;
+  border-radius: 10px;
   overflow-x: auto;
-  margin: 1em 0;
+  margin: 1.2em 0;
+  border: 1px solid var(--border-color);
+  font-size: 0.875em;
+  line-height: 1.7;
 }
 
 body.theme-paper #editor .ProseMirror pre code {
   background: none;
+  border: none;
   padding: 0;
-  font-size: 0.875em;
-  line-height: 1.65;
+  color: inherit;
+  font-size: 1em;
 }
 
-/* Blockquote: left border line only */
+/* ── Blockquote: left border line ────────────────────────────────────── */
 body.theme-paper #editor .ProseMirror blockquote {
   border-left: 3px solid var(--link-color);
-  padding-left: 14px;
-  margin: 1em 0;
+  padding-left: 16px;
+  margin: 1.2em 0;
   color: var(--text-muted);
   background: transparent;
 }
 
-/* Outline sidebar: clean indent hierarchy */
-body.theme-paper .outline-item {
-  font-size: 12.5px;
-  line-height: 1.45;
+/* ── Links ─────────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror a {
+  color: var(--link-color);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+body.theme-paper #editor .ProseMirror a:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+/* ── Lists ─────────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror ul,
+body.theme-paper #editor .ProseMirror ol {
+  padding-left: 22px;
+  margin: 0.5em 0;
+}
+
+body.theme-paper #editor .ProseMirror li {
+  margin: 0.2em 0;
+}
+
+/* ── Table ─────────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--table-border);
+}
+
+body.theme-paper #editor .ProseMirror th {
+  background: var(--table-header-bg);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
-  padding: 3px 10px;
-  margin: 1px 4px;
-  border-radius: 4px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--table-border);
+  text-align: left;
+}
+
+body.theme-paper #editor .ProseMirror td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+body.theme-paper #editor .ProseMirror tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── HR ─────────────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 2em 0;
+}
+
+/* ── Image ─────────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* ── Selection ─────────────────────────────────────────────────────────── */
+body.theme-paper #editor .ProseMirror ::selection {
+  background: var(--selection-bg);
+}
+
+/* ── Outline Sidebar ────────────────────────────────────────────────────── */
+body.theme-paper #outline-sidebar:not(.outline-hidden) {
+  width: var(--outline-width, 220px);
+  min-width: 160px;
+  max-width: 400px;
+  background: #0D0F1C;        /* deeper than editor to create spatial depth */
+  border-left: 1px solid var(--border-color);
+  transition: width 0.22s ease;
+}
+
+/* Resize handle: ultra-thin violet accent on hover */
+body.theme-paper #resize-handle {
+  width: 3px;
+  cursor: ew-resize;
+}
+
+body.theme-paper #resize-handle:hover,
+body.theme-paper #resize-handle.dragging {
+  background: var(--link-color);
+  opacity: 0.6;
+}
+
+/* Outline header: small caps metadata label */
+body.theme-paper .outline-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  padding: 14px 16px 8px;
+}
+
+body.theme-paper #outline-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+/* Outline items: hierarchical indent, no icons */
+body.theme-paper .outline-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
   cursor: pointer;
+  border-radius: 6px;
+  margin: 1px 6px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -832,17 +1052,17 @@ body.theme-paper .outline-item {
 }
 
 body.theme-paper .outline-item:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-color);
 }
 
 body.theme-paper .outline-item.active {
-  background: rgba(9, 105, 218, 0.08);
+  background: rgba(124, 77, 255, 0.15);
   color: var(--link-color);
-  font-weight: 500;
+  font-weight: 550;
 }
 
-/* Level indentation: 12px per level */
+/* 12px per level */
 body.theme-paper .outline-item.level-1 { padding-left: 16px; }
 body.theme-paper .outline-item.level-2 { padding-left: 28px; }
 body.theme-paper .outline-item.level-3 { padding-left: 40px; }
@@ -850,59 +1070,77 @@ body.theme-paper .outline-item.level-4 { padding-left: 52px; }
 body.theme-paper .outline-item.level-5 { padding-left: 64px; }
 body.theme-paper .outline-item.level-6 { padding-left: 76px; }
 
-/* Toggle icon: minimal arrow, no folder icon */
+/* Toggle icon: minimal tiny arrow */
 body.theme-paper .outline-item .toggle-icon {
   font-size: 7px;
   margin-right: 5px;
-  opacity: 0.4;
+  opacity: 0.35;
   flex-shrink: 0;
+  transition: opacity 0.12s;
 }
 
 body.theme-paper .outline-item .toggle-icon:hover {
   opacity: 0.8;
 }
 
-/* Agent status dot: subtle breathing animation */
-body.theme-paper #agent-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  opacity: 0.25;
-  animation: paper-breathe 3s ease-in-out infinite;
+body.theme-paper .outline-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-body.theme-paper #agent-dot.active {
-  background: var(--link-color);
-  opacity: 0.9;
-  animation: paper-breathe 2s ease-in-out infinite;
+body.theme-paper .outline-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 20px 16px;
 }
 
-body.theme-paper #agent-dot.cooldown {
-  background: #3fb950;
-  opacity: 0.7;
-  animation: none;
+/* ── Outline toggle button ─────────────────────────────────────────────── */
+body.theme-paper #outline-toggle {
+  font-size: 15px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
 }
 
-@keyframes paper-breathe {
-  0%, 100% { opacity: 0.25; transform: scale(0.92); }
-  50% { opacity: 0.9; transform: scale(1.08); }
+body.theme-paper #outline-toggle:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-emphasis);
 }
 
-/* Toast: bottom-right, rise up, auto-dismiss */
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+body.theme-paper ::-webkit-scrollbar { width: 5px; }
+body.theme-paper ::-webkit-scrollbar-track { background: transparent; }
+body.theme-paper ::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+body.theme-paper #outline-sidebar::-webkit-scrollbar { width: 4px; }
+body.theme-paper #outline-sidebar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+/* ── Toast: violet accent, rise animation ─────────────────────────────── */
 body.theme-paper .toast {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 9999;
-  background: var(--text-color);
-  color: var(--bg-color);
-  padding: 9px 16px;
-  border-radius: 6px;
+  background: var(--surface-color);
+  color: var(--text-emphasis);
+  padding: 10px 18px;
+  border-radius: 8px;
   font-size: 12.5px;
-  font-weight: 450;
+  font-weight: 500;
   line-height: 1.4;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--link-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(124, 77, 255, 0.15);
   opacity: 0;
   transform: translateY(10px);
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -921,73 +1159,7 @@ body.theme-paper .toast.toast-leave {
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-/* Sidebar: smooth slide */
-body.theme-paper #outline-sidebar:not(.outline-hidden) {
-  width: var(--outline-width, 220px);
-  min-width: 160px;
-  max-width: 400px;
-  border-left: 1px solid var(--border-color);
-  background: var(--bg-color);
-  transition: width 0.2s ease, min-width 0.2s ease;
-}
-
-/* Resize handle: ultra-thin */
-body.theme-paper #resize-handle {
-  width: 3px;
-  cursor: ew-resize;
-}
-
-body.theme-paper #resize-handle:hover,
-body.theme-paper #resize-handle.dragging {
-  background: var(--link-color);
-  opacity: 0.5;
-}
-
-/* Outline toggle: minimal icon button */
-body.theme-paper #outline-toggle {
-  font-size: 15px;
-  color: var(--text-muted);
-  padding: 4px 7px;
-  border-radius: 4px;
-}
-
-body.theme-paper #outline-toggle:hover {
-  color: var(--text-color);
-  background: rgba(0, 0, 0, 0.06);
-}
-
-/* Scrollbars: thin and subtle */
-body.theme-paper ::-webkit-scrollbar { width: 5px; }
-body.theme-paper ::-webkit-scrollbar-track { background: transparent; }
-body.theme-paper ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
-
-body.theme-paper #outline-sidebar::-webkit-scrollbar { width: 4px; }
-body.theme-paper #outline-sidebar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
-
-/* Outline header: minimal caps label */
-body.theme-paper .outline-header {
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-muted);
-  padding: 14px 14px 6px;
-}
-
-body.theme-paper #editor-layout {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-body.theme-paper #editor {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  padding: 0;
-}
-
+/* ── Editor wrapper ─────────────────────────────────────────────────────── */
 body.theme-paper #editor .ProseMirror {
   outline: none;
 }
