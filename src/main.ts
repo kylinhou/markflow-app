@@ -146,11 +146,12 @@ async function init(): Promise<void> {
   listen('file-changed', async () => {
     if (currentFilePath) {
       try {
-        const result = await invoke<FileData | null>('open_file_path', { 
-          path: currentFilePath 
+        const result = await invoke<FileData | null>('open_file_path', {
+          path: currentFilePath,
         })
         if (result) {
           setMarkdown(result.content)
+          showToast('文档已刷新')
         }
       } catch (e) {
         console.error('Failed to reload file:', e)
@@ -222,3 +223,28 @@ img{max-width:100%}
 }
 
 init().catch((e) => console.error('MarkFlow init failed:', e))
+
+// ─── Toast Notifications ─────────────────────────────────────────────────────
+
+/**
+ * Show a lightweight toast notification at the bottom-right corner.
+ * Vanilla JS + CSS animation — no third-party UI library needed.
+ */
+function showToast(message: string, duration = 3000): void {
+  const toast = document.createElement('div')
+  toast.className = 'toast'
+  toast.textContent = message
+  document.body.appendChild(toast)
+
+  // Force a reflow so the CSS transition picks up the initial state
+  toast.offsetHeight
+
+  // Trigger enter animation
+  toast.classList.add('toast-enter')
+
+  setTimeout(() => {
+    toast.classList.remove('toast-enter')
+    toast.classList.add('toast-leave')
+    setTimeout(() => toast.remove(), 400)
+  }, duration)
+}
