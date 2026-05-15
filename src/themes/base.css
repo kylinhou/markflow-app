@@ -1246,6 +1246,26 @@ body.theme-newsprint #editor .ProseMirror {
   display: block;
 }
 
+/* Value label shown only when slider is open */
+.width-row {
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+#content-width-slider-wrap.open .width-row {
+  display: flex;
+}
+
+#content-width-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
 /* The toggle button inside .outline-header */
 .width-label-btn {
   display: inline-flex;
