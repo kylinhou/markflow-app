@@ -161,26 +161,63 @@ function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
 // ─── Navigation ─────────────────────────────────────────────────────────────
 
 /**
- * Navigate to a heading by setting the ProseMirror selection at the heading's
- * document position, then letting ProseMirror scroll the editor view to it.
- * This is more reliable than DOM querySelector because Milkdown may wrap or
- * transform heading elements in ways that break attribute-based lookups.
+ * Navigate to a heading using a two-phase approach:
+ *
+ * Phase 1 — ProseMirror transaction: set selection at the heading's document
+ *   position and let ProseMirror scroll it into view. This preserves editor
+ *   state and cursor position correctly.
+ *
+ * Phase 2 — DOM anchor fallback: if Phase 1 fails (complex Milkdown DOM
+ *   nesting can cause scrollIntoView to be swallowed), use the already-set
+ *   data-outline-id attribute to locate the heading element directly and
+ *   scroll the #editor container manually. This is more robust than relying
+ *   on ProseMirror's coordinate system in nested layouts.
  */
 function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
   if (!view) return
 
-  const pos = item.pos
+  const editorEl = document.getElementById('editor')
+  if (!editorEl) return
 
-  // Create a TextSelection at the heading position
+  // ── Phase 1: ProseMirror transaction (primary path) ──
+  const pos = item.pos
   const sel = TextSelection.near(view.state.doc.resolve(pos))
   const tr = view.state.tr.setSelection(sel)
-  // Mark the transaction so ProseMirror scrolls the selection into view
   tr.scrollIntoView()
   view.dispatch(tr)
-
-  // Focus the editor so the cursor is visible
   view.focus()
+
+  // ── Phase 2: DOM anchor fallback (run after render settles) ──
+  // scrollIntoView() can be silently swallowed when the editor is nested
+  // inside a custom scroll container. We detect this by comparing the
+  // computed offset with the current scroll position and fall back to
+  // direct DOM manipulation if they diverge significantly.
+  requestAnimationFrame(() => {
+    const headingEl = view.dom.querySelector(`[data-outline-id="${item.id}"]`)
+    if (!headingEl) return
+
+    // Compute the heading's offset relative to the #editor scroll container.
+    // Walk up the offsetParent chain to accumulate offsets, stopping at
+    // the editor boundary. This handles arbitrary Milkdown wrapper depth.
+    let offsetTop = 0
+    let el: HTMLElement | null = headingEl as HTMLElement
+    while (el && el !== editorEl) {
+      offsetTop += el.offsetTop
+      el = el.offsetParent as HTMLElement | null
+    }
+
+    // Subtract a small top padding offset so the heading isn't flush against
+    // the top edge after jumping — gives a bit of visual breathing room.
+    const targetScroll = Math.max(0, offsetTop - 40)
+
+    // If the editor's scroll position is already close to the target,
+    // Phase 1 succeeded and we don't need to do anything.
+    if (Math.abs(editorEl.scrollTop - targetScroll) < 50) return
+
+    // Phase 1 appears to have failed; apply the fallback.
+    editorEl.scrollTo({ top: targetScroll, behavior: 'instant' })
+  })
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
