@@ -190,33 +190,28 @@ function scrollToHeading(item: HeadingItem): void {
 
   // ── Phase 2: DOM anchor fallback (run after render settles) ──
   // scrollIntoView() can be silently swallowed when the editor is nested
-  // inside a custom scroll container. We detect this by comparing the
-  // computed offset with the current scroll position and fall back to
-  // direct DOM manipulation if they diverge significantly.
+  // inside a custom scroll container. Use getBoundingClientRect() instead
+  // of offsetParent chain — it's immune to Milkdown's container nesting
+  // and doesn't depend on position:relative being set anywhere.
   requestAnimationFrame(() => {
-    const headingEl = view.dom.querySelector(`[data-outline-id="${item.id}"]`)
-    if (!headingEl) return
+    requestAnimationFrame(() => {
+      const headingEl = view.dom.querySelector(`[data-outline-id="${item.id}"]`)
+      if (!headingEl) return
 
-    // Compute the heading's offset relative to the #editor scroll container.
-    // Walk up the offsetParent chain to accumulate offsets, stopping at
-    // the editor boundary. This handles arbitrary Milkdown wrapper depth.
-    let offsetTop = 0
-    let el: HTMLElement | null = headingEl as HTMLElement
-    while (el && el !== editorEl) {
-      offsetTop += el.offsetTop
-      el = el.offsetParent as HTMLElement | null
-    }
+      const headingRect = headingEl.getBoundingClientRect()
+      const editorRect = editorEl.getBoundingClientRect()
 
-    // Subtract a small top padding offset so the heading isn't flush against
-    // the top edge after jumping — gives a bit of visual breathing room.
-    const targetScroll = Math.max(0, offsetTop - 40)
+      // Distance from heading's top edge to editor's top edge,
+      // in the editor's own scroll coordinate space.
+      const targetScroll = Math.max(
+        0,
+        headingRect.top - editorRect.top + editorEl.scrollTop - 40,
+      )
 
-    // If the editor's scroll position is already close to the target,
-    // Phase 1 succeeded and we don't need to do anything.
-    if (Math.abs(editorEl.scrollTop - targetScroll) < 50) return
-
-    // Phase 1 appears to have failed; apply the fallback.
-    editorEl.scrollTo({ top: targetScroll, behavior: 'instant' })
+      // Force the scroll regardless of how close we think Phase 1 got.
+      // Phase 1's scrollIntoView() is unreliable in nested scroll containers.
+      editorEl.scrollTo({ top: targetScroll, behavior: 'instant' })
+    })
   })
 }
 
