@@ -8,6 +8,7 @@ pub mod commands;
 pub mod file;
 pub mod menu;
 pub mod theme;
+pub mod watcher;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileData {
@@ -30,14 +31,20 @@ impl Default for WindowState {
     }
 }
 
+use watcher::WatcherMap;
+
 pub struct AppState {
     pub windows: Mutex<HashMap<String, WindowState>>,
+    /// File watchers per window. Dropping the WatcherHandle (mpsc::Sender) for a
+    /// window stops that watcher thread cleanly.
+    pub watchers: WatcherMap,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
             windows: Mutex::new(HashMap::new()),
+            watchers: WatcherMap::default(),
         }
     }
 }

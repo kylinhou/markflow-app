@@ -3,6 +3,7 @@ use tauri::Manager;
 use crate::{AppState, FileData};
 use crate::file::{self, suggest_file_name};
 use crate::theme;
+use crate::watcher;
 
 #[tauri::command]
 pub async fn open_file(
@@ -14,12 +15,18 @@ pub async fn open_file(
     if let Some(path) = file_path {
         let content = file::read_file(&path).await?;
         
-        // Setup file watcher
+        // Setup file watcher for this file
         let window_label = window.label().to_string();
         {
             let mut window_state = state.get_or_create_window_state(&window_label);
             window_state.file_path = Some(path.clone());
             state.update_window_state(&window_label, window_state);
+        }
+
+        // Start watching the file for external changes
+        let app_handle = window.app_handle().clone();
+        if let Err(e) = watcher::start_watcher(&state.watchers, &window_label, path.clone(), app_handle) {
+            log::error!("Failed to start file watcher: {}", e);
         }
         
         // Update window title
@@ -53,7 +60,13 @@ pub async fn open_file_path(
         window_state.file_path = Some(path.clone());
         state.update_window_state(&window_label, window_state);
     }
-    
+
+    // Start watching the file for external changes
+    let app_handle = window.app_handle().clone();
+    if let Err(e) = watcher::start_watcher(&state.watchers, &window_label, path.clone(), app_handle) {
+        log::error!("Failed to start file watcher: {}", e);
+    }
+
     // Update window title
     if let Some(file_name) = path.file_name() {
         window.set_title(&format!("{} — MarkFlow", file_name.to_string_lossy()))
