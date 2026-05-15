@@ -315,7 +315,7 @@ export function updateOutline(): void {
     currentTree = buildTree(headings)
     renderTree(currentTree)
     setupScrollSpy(headings)
-  }, 300)
+  }, 150)
 }
 
 /** Show or hide the sidebar */

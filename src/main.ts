@@ -193,8 +193,15 @@ async function init(): Promise<void> {
     openTab(null, '', 'Untitled')
   })
 
-  // Keyboard shortcut: Ctrl+Shift+O toggles outline sidebar
+  // ── Keyboard shortcuts ──
+
+  // Ctrl+S: save — Untitled pages trigger Save As, saved pages call save directly
   document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault()
+      // Re-dispatch as a menu-save event so the existing handler takes care of everything
+      window.dispatchEvent(new CustomEvent('menu-save'))
+    }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
       e.preventDefault()
       toggleSidebar()
@@ -232,6 +239,7 @@ async function init(): Promise<void> {
         tab.isDirty = false
         document.title = tab.name + ' — MarkFlow'
         renderTabs()
+        updateOutline()
       } else {
         const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
         if (result) {
@@ -241,6 +249,7 @@ async function init(): Promise<void> {
           tab.isDirty = false
           document.title = tab.name + ' — MarkFlow'
           renderTabs()
+          updateOutline()
         }
       }
     } catch (e) {
@@ -259,6 +268,7 @@ async function init(): Promise<void> {
         tab.isDirty = false
         document.title = tab.name + ' — MarkFlow'
         renderTabs()
+        updateOutline()
       }
     } catch (e) {
       console.error('Failed to save file as:', e)
