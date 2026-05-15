@@ -72,6 +72,16 @@ body {
   overflow-y: hidden;
 }
 
+#tab-list {
+  flex: 1;               /* fill remaining width so horizontal scroll works */
+  display: flex;
+  align-items: center;  /* keep tabs vertically centered in tab-bar */
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 2px;
+  min-width: 0;          /* allow flex children to shrink below their min-width */
+}
+
 #tab-bar::-webkit-scrollbar {
   height: 0;
 }
@@ -115,6 +125,7 @@ body {
   transition: background 0.15s, color 0.15s;
   position: relative;
   max-width: 180px;
+  min-width: 80px;       /* prevent tabs from becoming too narrow */
   flex-shrink: 0;
 }
 
@@ -133,7 +144,7 @@ body {
 .tab.active::after {
   content: '';
   position: absolute;
-  bottom: -1px;
+  bottom: 0;              /* extend 1px down to cover tab-bar's bottom border */
   left: 0;
   right: 0;
   height: 1px;
@@ -143,6 +154,8 @@ body {
 .tab .tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;          /* required for text-overflow to work inside flex child */
+  flex: 1;               /* take all available space within the tab */
 }
 
 .tab .tab-dirty {
@@ -184,7 +197,6 @@ body {
 }
 
 #editor {
-  height: auto;
   overflow-y: auto;
   padding: 0 40px 40px;
   transition: padding-right 0.25s ease;
