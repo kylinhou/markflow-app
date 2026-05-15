@@ -10,6 +10,7 @@
 
 import { getEditorView } from './editor'
 import { TextSelection } from 'prosemirror-state'
+import type { EditorView } from '@milkdown/kit/prose/view'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -161,17 +162,49 @@ function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
 // ─── Navigation ─────────────────────────────────────────────────────────────
 
 /**
- * Navigate to a heading using a two-phase approach:
+ * Resolve the rendered DOM element for a heading from its ProseMirror position.
+ *
+ * Use ProseMirror's position map as the source of truth. Hand-written
+ * data-* attributes inside the editor DOM are not stable: ProseMirror owns
+ * that DOM and may recreate/normalize nodes after transactions.
+ */
+function getHeadingElement(view: EditorView, item: HeadingItem): HTMLElement | null {
+  const node = view.nodeDOM(item.pos)
+  return node instanceof HTMLElement ? node : null
+}
+
+/**
+ * Scroll the editor container so the target heading sits below the header.
+ * Returns true when a heading DOM node was resolved and scrolled to.
+ */
+function scrollEditorToHeading(view: EditorView, item: HeadingItem, editorEl: HTMLElement): boolean {
+  const headingEl = getHeadingElement(view, item)
+  if (!headingEl) return false
+
+  const headingRect = headingEl.getBoundingClientRect()
+  const editorRect = editorEl.getBoundingClientRect()
+
+  // Distance from heading's top edge to editor's top edge,
+  // in the editor's own scroll coordinate space.
+  const targetScroll = Math.max(
+    0,
+    headingRect.top - editorRect.top + editorEl.scrollTop - 40,
+  )
+
+  editorEl.scrollTo({ top: targetScroll, behavior: 'instant' })
+  return true
+}
+
+/**
+ * Navigate to a heading using ProseMirror position as the single source of truth:
  *
  * Phase 1 — ProseMirror transaction: set selection at the heading's document
- *   position and let ProseMirror scroll it into view. This preserves editor
- *   state and cursor position correctly.
+ *   position. This preserves editor state and cursor position.
  *
- * Phase 2 — DOM anchor fallback: if Phase 1 fails (complex Milkdown DOM
- *   nesting can cause scrollIntoView to be swallowed), use the already-set
- *   data-outline-id attribute to locate the heading element directly and
- *   scroll the #editor container manually. This is more robust than relying
- *   on ProseMirror's coordinate system in nested layouts.
+ * Phase 2 — Precise DOM scroll: resolve the rendered heading via
+ *   view.nodeDOM(item.pos), then scroll the actual #editor container manually.
+ *   Do not rely on manually injected data-outline-id attributes inside the
+ *   editor DOM; ProseMirror/Milkdown can remove them during DOM sync.
  */
 function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
@@ -180,7 +213,7 @@ function scrollToHeading(item: HeadingItem): void {
   const editorEl = document.getElementById('editor')
   if (!editorEl) return
 
-  // ── Phase 1: ProseMirror transaction (primary path) ──
+  // ── Phase 1: move selection / preserve editor state ──
   const pos = item.pos
   const sel = TextSelection.near(view.state.doc.resolve(pos))
   const tr = view.state.tr.setSelection(sel)
@@ -188,57 +221,17 @@ function scrollToHeading(item: HeadingItem): void {
   view.dispatch(tr)
   view.focus()
 
-  // ── Phase 2: DOM anchor fallback (run after render settles) ──
-  // scrollIntoView() can be silently swallowed when the editor is nested
-  // inside a custom scroll container. Use getBoundingClientRect() instead
-  // of offsetParent chain — it's immune to Milkdown's container nesting
-  // and doesn't depend on position:relative being set anywhere.
+  // ── Phase 2: precise DOM fallback (run after render settles) ──
+  // ProseMirror's scrollIntoView() is unreliable in MarkFlow's nested scroll
+  // container, so always perform the explicit container scroll as the final step.
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      const headingEl = view.dom.querySelector(`[data-outline-id="${item.id}"]`)
-      if (!headingEl) return
-
-      const headingRect = headingEl.getBoundingClientRect()
-      const editorRect = editorEl.getBoundingClientRect()
-
-      // Distance from heading's top edge to editor's top edge,
-      // in the editor's own scroll coordinate space.
-      const targetScroll = Math.max(
-        0,
-        headingRect.top - editorRect.top + editorEl.scrollTop - 40,
-      )
-
-      // Force the scroll regardless of how close we think Phase 1 got.
-      // Phase 1's scrollIntoView() is unreliable in nested scroll containers.
-      editorEl.scrollTo({ top: targetScroll, behavior: 'instant' })
+      scrollEditorToHeading(view, item, editorEl)
     })
   })
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
-
-/**
- * Assign data-outline-id attributes to heading DOM elements so IntersectionObserver
- * can identify which heading is visible. We read IDs from the items we already
- * extracted (which were assigned in order), then walk the DOM h1-h6 elements
- * and tag them sequentially — this avoids any index mismatch between the
- * ProseMirror doc order and DOM element order.
- */
-function syncHeadingIds(headings: HeadingItem[]): void {
-  const view = getEditorView()
-  if (!view || headings.length === 0) return
-
-  const dom = view.dom
-  const headingEls = Array.from(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'))
-    .filter(el => el.textContent?.trim())
-
-  headings.forEach((item, i) => {
-    const el = headingEls[i]
-    if (el) {
-      el.setAttribute('data-outline-id', item.id)
-    }
-  })
-}
 
 function setupScrollSpy(headings: HeadingItem[]): void {
   if (observer) {
@@ -249,16 +242,16 @@ function setupScrollSpy(headings: HeadingItem[]): void {
   const view = getEditorView()
   if (!view) return
 
-  syncHeadingIds(headings)
+  const editorEl = document.getElementById('editor')
+  if (!editorEl) return
 
-  const headingEls: Element[] = []
-  view.dom.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(el => {
-    if (el.hasAttribute('data-outline-id')) {
-      headingEls.push(el)
-    }
+  const headingEntries: Array<{ el: HTMLElement; id: string }> = []
+  headings.forEach((item) => {
+    const el = getHeadingElement(view, item)
+    if (el) headingEntries.push({ el, id: item.id })
   })
 
-  if (headingEls.length === 0) return
+  if (headingEntries.length === 0) return
 
   observer = new IntersectionObserver(
     (entries) => {
@@ -267,7 +260,8 @@ function setupScrollSpy(headings: HeadingItem[]): void {
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
 
       if (visible.length > 0) {
-        const id = (visible[0].target as HTMLElement).dataset.outlineId
+        const entry = headingEntries.find(({ el }) => el === visible[0].target)
+        const id = entry?.id
         if (id && id !== activeId) {
           activeId = id
           updateActiveHighlight(id)
@@ -275,13 +269,13 @@ function setupScrollSpy(headings: HeadingItem[]): void {
       }
     },
     {
-      root: null,
+      root: editorEl,
       rootMargin: '-10% 0px -70% 0px',
       threshold: 0,
     }
   )
 
-  headingEls.forEach(el => observer!.observe(el))
+  headingEntries.forEach(({ el }) => observer!.observe(el))
 }
 
 function updateActiveHighlight(id: string): void {
