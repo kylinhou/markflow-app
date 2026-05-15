@@ -17,6 +17,7 @@ html, body {
   height: 52px;
   flex-shrink: 0;
   position: relative;
+  border-bottom: 1px solid var(--border-color);
 }
 
 #agent-dot {
@@ -49,8 +50,134 @@ html, body {
   50% { opacity: 1; transform: scale(1.05); }
 }
 
+/* ─── Tab Bar ──────────────────────────────────────────────────────────────── */
+
+#tab-bar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  background: var(--bg-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  padding: 0 4px;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#tab-bar::-webkit-scrollbar {
+  height: 0;
+}
+
+#tab-new {
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+#tab-new:hover {
+  background: rgba(128, 128, 128, 0.15);
+  color: var(--text-color);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 12px;
+  border-radius: 6px 6px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 450;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+  max-width: 180px;
+  flex-shrink: 0;
+}
+
+.tab:hover {
+  background: rgba(128, 128, 128, 0.1);
+  color: var(--text-color);
+}
+
+.tab.active {
+  background: var(--bg-color);
+  color: var(--text-color);
+  border-color: var(--border-color);
+  font-weight: 500;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--bg-color);
+}
+
+.tab .tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab .tab-dirty {
+  display: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--link-color);
+  flex-shrink: 0;
+}
+
+.tab.dirty .tab-dirty {
+  display: block;
+}
+
+.tab .tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  opacity: 1;
+}
+
+.tab .tab-close:hover {
+  background: rgba(128, 128, 128, 0.2);
+  color: var(--text-color);
+}
+
 #editor {
-  height: calc(100vh - 52px);
+  height: auto;
   overflow-y: auto;
   padding: 0 40px 40px;
   transition: padding-right 0.25s ease;
@@ -67,7 +194,8 @@ body:not(.outline-sidebar-visible) #editor {
 
 #editor-layout {
   display: flex;
-  height: calc(100vh - 52px);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -78,6 +206,7 @@ body:not(.outline-sidebar-visible) #editor {
 #editor {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
 }
 
 #outline-sidebar {

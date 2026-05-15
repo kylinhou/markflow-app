@@ -5,14 +5,157 @@ import { applyTheme, loadSavedTheme } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState } from './editor/outline'
 import './themes/base.css'
 
-// Types
+// ─── Types ─────────────────────────────────────────────────────────────────
+
 interface FileData {
   path: string
   content: string
 }
 
-// State
-let currentFilePath: string | null = null
+interface Tab {
+  id: string          // unique tab identifier (file path or temp id)
+  path: string | null // null = untitled
+  name: string        // display name
+  isDirty: boolean    // unsaved changes
+  content: string     // current editor content for this tab
+}
+
+// ─── State ─────────────────────────────────────────────────────────────────
+
+let tabs: Tab[] = []
+let activeTabId: string | null = null
+
+// ─── Tab Management ─────────────────────────────────────────────────────────
+
+function getActiveTab(): Tab | undefined {
+  return tabs.find(t => t.id === activeTabId)
+}
+
+function tabName(path: string | null): string {
+  if (!path) return 'Untitled'
+  return path.split(/[\\/]/).pop() || 'Untitled'
+}
+
+function renderTabs(): void {
+  const list = document.getElementById('tab-list')
+  if (!list) return
+  list.innerHTML = ''
+
+  for (const tab of tabs) {
+    const el = document.createElement('div')
+    el.className = 'tab' + (tab.id === activeTabId ? ' active' : '') + (tab.isDirty ? ' dirty' : '')
+    el.dataset.tabId = tab.id
+
+    const name = document.createElement('span')
+    name.className = 'tab-name'
+    name.textContent = tab.name
+    el.appendChild(name)
+
+    const dirty = document.createElement('span')
+    dirty.className = 'tab-dirty'
+    el.appendChild(dirty)
+
+    const close = document.createElement('button')
+    close.className = 'tab-close'
+    close.textContent = '×'
+    close.addEventListener('click', (e) => {
+      e.stopPropagation()
+      closeTab(tab.id)
+    })
+    el.appendChild(close)
+
+    el.addEventListener('click', () => switchTab(tab.id))
+
+    list.appendChild(el)
+  }
+}
+
+function switchTab(id: string): void {
+  // Save current tab's content before switching
+  if (activeTabId) {
+    const current = getActiveTab()
+    if (current) {
+      current.content = getMarkdown()
+    }
+  }
+
+  activeTabId = id
+  const tab = getActiveTab()
+  if (!tab) return
+
+  // Load the tab's content into the editor
+  setMarkdown(tab.content)
+
+  // Update window title
+  document.title = tab.name + (tab.isDirty ? ' •' : '') + ' — MarkFlow'
+
+  renderTabs()
+  updateOutline()
+}
+
+function openTab(path: string | null, content: string, name: string): Tab {
+  const id = path || `untitled-${Date.now()}`
+
+  // If tab already exists, just switch to it
+  const existing = tabs.find(t => t.id === id)
+  if (existing) {
+    activeTabId = id
+    setMarkdown(existing.content)
+    renderTabs()
+    updateOutline()
+    return existing
+  }
+
+  const tab: Tab = { id, path, name, isDirty: false, content }
+  tabs.push(tab)
+  activeTabId = id
+
+  setMarkdown(content)
+  document.title = name + ' — MarkFlow'
+
+  renderTabs()
+  updateOutline()
+
+  return tab
+}
+
+function closeTab(id: string): void {
+  const index = tabs.findIndex(t => t.id === id)
+  if (index === -1) return
+
+  // If it's the last tab, create a new untitled one
+  if (tabs.length === 1) {
+    tabs = []
+    activeTabId = null
+    openTab(null, '', 'Untitled')
+    return
+  }
+
+  // Remove this tab
+  tabs.splice(index, 1)
+
+  // If closing the active tab, switch to another
+  if (activeTabId === id) {
+    const newIndex = Math.min(index, tabs.length - 1)
+    activeTabId = tabs[newIndex].id
+    setMarkdown(tabs[newIndex].content)
+    document.title = tabs[newIndex].name + ' — MarkFlow'
+  }
+
+  renderTabs()
+  updateOutline()
+}
+
+function markDirty(): void {
+  const tab = getActiveTab()
+  if (!tab) return
+  if (tab.isDirty) return
+  tab.isDirty = true
+  document.title = tab.name + ' • — MarkFlow'
+  renderTabs()
+}
+
+// ─── Init ───────────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
   // Initialize theme
@@ -41,7 +184,13 @@ async function init(): Promise<void> {
 
   // Update outline on every content change
   listen('markdown-updated', () => {
+    markDirty()
     updateOutline()
+  })
+
+  // ── New Tab button ──
+  document.getElementById('tab-new')?.addEventListener('click', () => {
+    openTab(null, '', 'Untitled')
   })
 
   // Keyboard shortcut: Ctrl+Shift+O toggles outline sidebar
@@ -53,18 +202,21 @@ async function init(): Promise<void> {
   })
 
   // Outline toggle button in titlebar
-  const toggleBtn = document.getElementById('outline-toggle')
-  toggleBtn?.addEventListener('click', () => {
+  document.getElementById('outline-toggle')?.addEventListener('click', () => {
     toggleSidebar()
   })
 
-  // Menu event listeners
+  // ── Menu event listeners ──
+
+  listen('menu-new', () => {
+    openTab(null, '', 'Untitled')
+  })
+
   listen('menu-open', async () => {
     try {
       const result = await invoke<FileData | null>('open_file')
       if (result) {
-        currentFilePath = result.path
-        setMarkdown(result.content)
+        openTab(result.path, result.content, tabName(result.path))
       }
     } catch (e) {
       console.error('Failed to open file:', e)
@@ -72,16 +224,42 @@ async function init(): Promise<void> {
   })
 
   listen('menu-save', async () => {
+    const tab = getActiveTab()
+    if (!tab) return
     try {
-      await invoke('save_file', { content: getMarkdown() })
+      if (tab.path) {
+        await invoke('save_file', { content: getMarkdown() })
+        tab.isDirty = false
+        document.title = tab.name + ' — MarkFlow'
+        renderTabs()
+      } else {
+        const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
+        if (result) {
+          // save_file_as returns new path info — update the tab
+          tab.path = result.path
+          tab.name = tabName(result.path)
+          tab.isDirty = false
+          document.title = tab.name + ' — MarkFlow'
+          renderTabs()
+        }
+      }
     } catch (e) {
       console.error('Failed to save file:', e)
     }
   })
 
   listen('menu-save-as', async () => {
+    const tab = getActiveTab()
+    if (!tab) return
     try {
-      await invoke('save_file_as', { content: getMarkdown() })
+      const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
+      if (result) {
+        tab.path = result.path
+        tab.name = tabName(result.path)
+        tab.isDirty = false
+        document.title = tab.name + ' — MarkFlow'
+        renderTabs()
+      }
     } catch (e) {
       console.error('Failed to save file as:', e)
     }
@@ -108,22 +286,13 @@ async function init(): Promise<void> {
   listen('open-file-from-cli', async (event) => {
     const filePath = event.payload as string
     try {
-      const result = await invoke<{ content: string; path: string } | null>('open_file_path', { path: filePath })
+      const result = await invoke<FileData | null>('open_file_path', { path: filePath })
       if (result) {
-        currentFilePath = result.path
-        setMarkdown(result.content)
-        // Update window title
-        const fileName = result.path.split(/[\/]/).pop() || 'Untitled'
-        document.title = fileName + ' — MarkFlow'
+        openTab(result.path, result.content, tabName(result.path))
       }
     } catch (e) {
       console.error('Failed to open file from CLI:', e)
     }
-  })
-
-  listen('menu-new', () => {
-    currentFilePath = null
-    setMarkdown('')
   })
 
   listen('menu-import-theme', async () => {
@@ -142,20 +311,26 @@ async function init(): Promise<void> {
     applyTheme(theme)
   })
 
-  // File change listener
-  listen('file-changed', async () => {
-    if (currentFilePath) {
-      try {
-        const result = await invoke<FileData | null>('open_file_path', {
-          path: currentFilePath,
-        })
-        if (result) {
+  // File change listener — route to the correct tab by path
+  listen<{ path: string }>('file-changed', async (event) => {
+    const changedPath = event.payload.path
+    const tab = tabs.find(t => t.path === changedPath)
+    if (!tab) return
+
+    try {
+      const result = await invoke<FileData | null>('open_file_path', { path: changedPath })
+      if (result) {
+        if (tab.id === activeTabId) {
+          // Active tab — reload directly
           setMarkdown(result.content)
           showToast('文档已刷新')
+        } else {
+          // Background tab — update content but don't switch
+          tab.content = result.content
         }
-      } catch (e) {
-        console.error('Failed to reload file:', e)
       }
+    } catch (e) {
+      console.error('Failed to reload file:', e)
     }
   })
 
@@ -165,17 +340,21 @@ async function init(): Promise<void> {
     e.preventDefault()
     const file = e.dataTransfer?.files[0]
     if (!file) return
-    
     // In Tauri, we can use the path from the file object
     // For now, we'll need to handle this differently
     // This is a simplified version
   })
+
+  // Start with a blank tab
+  openTab(null, '', 'Untitled')
 }
+
+// ─── Export ─────────────────────────────────────────────────────────────────
 
 function generateExportHTML(): string {
   const s = getComputedStyle(document.body)
   const v = (name: string) => s.getPropertyValue(name).trim()
-  
+
   const bgColor = v('--bg-color')
   const textColor = v('--text-color')
   const textMuted = v('--text-muted')
@@ -222,24 +401,16 @@ img{max-width:100%}
 </head><body>${getHTML()}</body></html>`
 }
 
-init().catch((e) => console.error('MarkFlow init failed:', e))
-
 // ─── Toast Notifications ─────────────────────────────────────────────────────
 
-/**
- * Show a lightweight toast notification at the bottom-right corner.
- * Vanilla JS + CSS animation — no third-party UI library needed.
- */
 function showToast(message: string, duration = 3000): void {
   const toast = document.createElement('div')
   toast.className = 'toast'
   toast.textContent = message
   document.body.appendChild(toast)
 
-  // Force a reflow so the CSS transition picks up the initial state
   toast.offsetHeight
 
-  // Trigger enter animation
   toast.classList.add('toast-enter')
 
   setTimeout(() => {
@@ -248,3 +419,5 @@ function showToast(message: string, duration = 3000): void {
     setTimeout(() => toast.remove(), 400)
   }, duration)
 }
+
+init().catch((e) => console.error('MarkFlow init failed:', e))
