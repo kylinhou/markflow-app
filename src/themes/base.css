@@ -396,7 +396,7 @@ body:not(.outline-sidebar-visible) #editor {
 
 #editor .ProseMirror {
   outline: none;
-  max-width: 780px;
+  max-width: var(--content-width, 780px);
   margin: 0 auto;
   min-height: calc(100vh - 92px);
   font-size: 16px;
@@ -546,6 +546,11 @@ body:not(.outline-sidebar-visible) #editor {
 }
 
 /* ======= THEMES ======= */
+
+/* ── Global layout preference (overridden per theme via max-width) ── */
+:root {
+  --content-width: 780px;   /* user-configurable content width, in px */
+}
 
 body, body.theme-light {
   --bg-color: #ffffff;
@@ -818,7 +823,7 @@ body.theme-paper #editor {
 /* ProseMirror: generous padding, editorial spacing */
 body.theme-paper #editor .ProseMirror {
   outline: none;
-  max-width: 760px;
+  max-width: var(--content-width, 760px);
   margin: 0 auto;
   padding: 48px 52px 80px;
   min-height: calc(100vh - 80px);
@@ -1179,6 +1184,7 @@ body.theme-newsprint {
 
 body.theme-newsprint #editor .ProseMirror {
   font-family: 'PT Serif', Georgia, serif;
+  max-width: var(--content-width, 780px);
 }
 
 /* Scrollbar */
@@ -1227,3 +1233,77 @@ body.theme-newsprint #editor .ProseMirror {
   transform: translateY(8px);
   transition: opacity 0.35s ease, transform 0.35s ease;
 }
+
+/* ── Content Width Slider (theme-neutral — applies to all themes) ─────── */
+
+#content-width-slider-wrap {
+  display: none;
+  padding: 8px 16px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+#content-width-slider-wrap.open {
+  display: block;
+}
+
+/* The toggle button inside .outline-header */
+.width-label-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  padding: 2px 5px;
+  border-radius: 3px;
+  transition: color 0.12s, background 0.12s;
+  margin-left: auto;
+}
+
+.width-label-btn:hover {
+  color: var(--text-color);
+  background: rgba(128, 128, 128, 0.12);
+}
+
+/* Range slider track + thumb */
+.content-width-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-color);
+  outline: none;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.content-width-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--link-color, #7C4DFF);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.content-width-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.content-width-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--link-color, #7C4DFF);
+  border: none;
+  cursor: pointer;
+}
+

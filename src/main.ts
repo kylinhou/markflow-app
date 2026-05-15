@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
 import { createEditor, getMarkdown, getHTML, setMarkdown } from './editor/editor'
-import { applyTheme, loadSavedTheme } from './themes/theme-manager'
+import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyContentWidth } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState } from './editor/outline'
 import './themes/base.css'
 
@@ -170,6 +170,9 @@ async function init(): Promise<void> {
   const savedTheme = loadSavedTheme()
   applyTheme(savedTheme)
 
+  // Apply saved content width (independent of theme)
+  applyContentWidth(loadContentWidth())
+
   // Restore custom theme CSS from disk
   if (savedTheme.startsWith('custom:')) {
     const fileName = savedTheme.slice(7)
@@ -223,6 +226,33 @@ async function init(): Promise<void> {
   // Outline toggle button in titlebar
   document.getElementById('outline-toggle')?.addEventListener('click', () => {
     toggleSidebar()
+  })
+
+  // ── Content Width Slider ──
+  const sliderWrap = document.getElementById('content-width-slider-wrap')!
+  const slider = document.getElementById('content-width-slider') as HTMLInputElement
+  const widthValue = document.getElementById('content-width-value')!
+
+  // Sync slider + label from saved value on init
+  const initialWidth = loadContentWidth()
+  slider.value = String(initialWidth)
+  widthValue.textContent = String(initialWidth)
+
+  // Click the "780px" label to toggle slider panel
+  document.getElementById('content-width-toggle')?.addEventListener('click', () => {
+    sliderWrap.classList.toggle('open')
+  })
+
+  // Live preview while dragging
+  slider.addEventListener('input', () => {
+    const w = parseInt(slider.value, 10)
+    applyContentWidth(w)
+    widthValue.textContent = String(w)
+  })
+
+  // Save on mouseup / touchend
+  slider.addEventListener('change', () => {
+    setContentWidth(parseInt(slider.value, 10))
   })
 
   // ── Unified save handler — called by both Ctrl+S and menu-save ──
