@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
+import { emit, listen } from '@tauri-apps/api/event'
 import { createEditor, getMarkdown, getHTML, setMarkdown } from './editor/editor'
 import { applyTheme, loadSavedTheme } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState } from './editor/outline'
@@ -173,8 +173,12 @@ async function init(): Promise<void> {
     }
   }
 
-  // Create editor
-  await createEditor('editor')
+  // Create editor — pass onChange so Milkdown's markdownUpdated listener
+  // gets registered. Without this, emit('markdown-updated') is never called
+  // and outline never refreshes during typing.
+  await createEditor('editor', (markdown) => {
+    emit('markdown-updated', { markdown }).catch(() => {})
+  })
 
   // Restore outline sidebar visibility preference
   restoreOutlineState()
@@ -195,12 +199,12 @@ async function init(): Promise<void> {
 
   // ── Keyboard shortcuts ──
 
-  // Ctrl+S: save — Untitled pages trigger Save As, saved pages call save directly
+  // Ctrl+S: save — direct call, not dispatchEvent (Tauri listen() does not
+  // receive DOM CustomEvents from window.dispatchEvent in the webview)
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault()
-      // Re-dispatch as a menu-save event so the existing handler takes care of everything
-      window.dispatchEvent(new CustomEvent('menu-save'))
+      handleSave()
     }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
       e.preventDefault()
@@ -212,6 +216,33 @@ async function init(): Promise<void> {
   document.getElementById('outline-toggle')?.addEventListener('click', () => {
     toggleSidebar()
   })
+
+  // ── Unified save handler — called by both Ctrl+S and menu-save ──
+  async function handleSave(): Promise<void> {
+    const tab = getActiveTab()
+    if (!tab) return
+    try {
+      if (tab.path) {
+        await invoke('save_file', { content: getMarkdown() })
+        tab.isDirty = false
+        document.title = tab.name + ' — MarkFlow'
+        renderTabs()
+        updateOutline()
+      } else {
+        const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
+        if (result) {
+          tab.path = result.path
+          tab.name = tabName(result.path)
+          tab.isDirty = false
+          document.title = tab.name + ' — MarkFlow'
+          renderTabs()
+          updateOutline()
+        }
+      }
+    } catch (e) {
+      console.error('Failed to save file:', e)
+    }
+  }
 
   // ── Menu event listeners ──
 
@@ -230,31 +261,8 @@ async function init(): Promise<void> {
     }
   })
 
-  listen('menu-save', async () => {
-    const tab = getActiveTab()
-    if (!tab) return
-    try {
-      if (tab.path) {
-        await invoke('save_file', { content: getMarkdown() })
-        tab.isDirty = false
-        document.title = tab.name + ' — MarkFlow'
-        renderTabs()
-        updateOutline()
-      } else {
-        const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
-        if (result) {
-          // save_file_as returns new path info — update the tab
-          tab.path = result.path
-          tab.name = tabName(result.path)
-          tab.isDirty = false
-          document.title = tab.name + ' — MarkFlow'
-          renderTabs()
-          updateOutline()
-        }
-      }
-    } catch (e) {
-      console.error('Failed to save file:', e)
-    }
+  listen('menu-save', () => {
+    handleSave()
   })
 
   listen('menu-save-as', async () => {
