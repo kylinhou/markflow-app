@@ -180,7 +180,7 @@ pub fn build_menu(app: &App) -> Result<(), String> {
                 "about" => {
                     let _ = app
                         .shell()
-                        .open("https://github.com/marswaveai/markflow", None);
+                        .open("https://github.com/kylinhou/markflow-app", None);
                 }
                 _ => {}
             }

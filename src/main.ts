@@ -106,6 +106,14 @@ function openTab(path: string | null, content: string, name: string): Tab {
     return existing
   }
 
+  // Save current tab's editor content before switching away
+  if (activeTabId) {
+    const currentTab = getActiveTab()
+    if (currentTab) {
+      currentTab.content = getMarkdown()
+    }
+  }
+
   const tab: Tab = { id, path, name, isDirty: false, content }
   tabs.push(tab)
   activeTabId = id
