@@ -46,6 +46,14 @@ pub fn build_menu(app: &App) -> Result<(), String> {
         None::<&str>,
     )
     .map_err(|e| e.to_string())?;
+    let theme_paper = MenuItem::with_id(
+        app_handle,
+        "theme-paper",
+        "Paper",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| e.to_string())?;
     let import_theme = MenuItem::with_id(
         app_handle,
         "import-theme",
@@ -65,6 +73,7 @@ pub fn build_menu(app: &App) -> Result<(), String> {
             &theme_dark,
             &theme_elegant,
             &theme_newsprint,
+            &theme_paper,
             &PredefinedMenuItem::separator(app_handle).map_err(|e| e.to_string())?,
             &import_theme,
         ],
@@ -173,6 +182,9 @@ pub fn build_menu(app: &App) -> Result<(), String> {
                 }
                 "theme-newsprint" => {
                     let _ = window.emit("set-theme", "newsprint");
+                }
+                "theme-paper" => {
+                    let _ = window.emit("set-theme", "paper");
                 }
                 "import-theme" => {
                     let _ = window.emit("menu-import-theme", ());
