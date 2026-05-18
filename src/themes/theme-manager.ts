@@ -37,7 +37,7 @@ export function applyTheme(name: string, customCSS?: string): void {
 }
 
 export function loadSavedTheme(): string {
-  return localStorage.getItem('markflow-theme') || 'elegant'
+  return localStorage.getItem('markflow-theme') || 'paper'
 }
 
 // ── Content Width ─────────────────────────────────────────────────────────────
