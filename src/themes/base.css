@@ -549,7 +549,7 @@ body:not(.outline-sidebar-visible) #editor {
 
 /* ── Global layout preference (overridden per theme via max-width) ── */
 :root {
-  --content-width: 780px;   /* user-configurable content width, in px */
+  --content-width: 1020px;   /* user-configurable content width, in px */
 }
 
 body, body.theme-light {
