@@ -31,8 +31,13 @@ interface OutlineNode {
 
 let currentTree: OutlineNode[] = []
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
-let observer: IntersectionObserver | null = null
+let scrollSpyObserver: IntersectionObserver | null = null
 let activeId: string | null = null
+
+// When user clicks a heading, we disable auto-scroll-spy for this period
+// to prevent the observer from overriding the user's explicit choice.
+let spySuppressed = false
+let spySuppressTimer: ReturnType<typeof setTimeout> | null = null
 
 // ─── Utilities ─────────────────────────────────────────────────────────────
 
@@ -162,23 +167,36 @@ function renderTree(nodes: OutlineNode[], container?: HTMLElement) {
 // ─── Navigation ─────────────────────────────────────────────────────────────
 
 /**
- * Resolve the rendered DOM element for a heading from its ProseMirror position.
+ * Find the rendered DOM element for a heading using multiple strategies:
+ * 1. Primary: view.nodeDOM(pos) — fast but may be stale after DOM mutations
+ * 2. Fallback: scan headingEls for the one whose ProseMirror pos matches
  *
- * Use ProseMirror's position map as the source of truth. Hand-written
- * data-* attributes inside the editor DOM are not stable: ProseMirror owns
- * that DOM and may recreate/normalize nodes after transactions.
+ * Returns null if the element cannot be resolved.
  */
-function getHeadingElement(view: EditorView, item: HeadingItem): HTMLElement | null {
-  const node = view.nodeDOM(item.pos)
-  return node instanceof HTMLElement ? node : null
+function getHeadingElement(view: EditorView, item: HeadingItem, headingEls: HTMLElement[]): HTMLElement | null {
+  // Strategy 1: fast path
+  const fast = view.nodeDOM(item.pos)
+  if (fast instanceof HTMLElement) return fast
+
+  // Strategy 2: scan all resolved heading elements by position
+  // Use the editor's DOM coordinate system to verify
+  for (const el of headingEls) {
+    const from = view.posAtDOM(el, 0)
+    const to = view.posAtDOM(el, el.childNodes.length)
+    if (from <= item.pos && item.pos < to) {
+      return el
+    }
+  }
+
+  return null
 }
 
 /**
  * Scroll the editor container so the target heading sits below the header.
  * Returns true when a heading DOM node was resolved and scrolled to.
  */
-function scrollEditorToHeading(view: EditorView, item: HeadingItem, editorEl: HTMLElement): boolean {
-  const headingEl = getHeadingElement(view, item)
+function scrollEditorToHeading(view: EditorView, item: HeadingItem, editorEl: HTMLElement, headingEls: HTMLElement[]): boolean {
+  const headingEl = getHeadingElement(view, item, headingEls)
   if (!headingEl) return false
 
   const headingRect = headingEl.getBoundingClientRect()
@@ -196,15 +214,10 @@ function scrollEditorToHeading(view: EditorView, item: HeadingItem, editorEl: HT
 }
 
 /**
- * Navigate to a heading using ProseMirror position as the single source of truth:
+ * Navigate to a heading with immediate active highlight.
  *
- * Phase 1 — ProseMirror transaction: set selection at the heading's document
- *   position. This preserves editor state and cursor position.
- *
- * Phase 2 — Precise DOM scroll: resolve the rendered heading via
- *   view.nodeDOM(item.pos), then scroll the actual #editor container manually.
- *   Do not rely on manually injected data-outline-id attributes inside the
- *   editor DOM; ProseMirror/Milkdown can remove them during DOM sync.
+ * Suppresses the scroll-spy for 300ms so IntersectionObserver can't
+ * override the user's explicit navigation choice during the settle phase.
  */
 function scrollToHeading(item: HeadingItem): void {
   const view = getEditorView()
@@ -212,6 +225,17 @@ function scrollToHeading(item: HeadingItem): void {
 
   const editorEl = document.getElementById('editor')
   if (!editorEl) return
+
+  // ── Immediate: set active right now ──
+  activeId = item.id
+  updateActiveHighlight(item.id)
+
+  // ── Suppress auto-scroll-spy during and after scroll ──
+  if (spySuppressTimer) clearTimeout(spySuppressTimer)
+  spySuppressed = true
+  spySuppressTimer = setTimeout(() => {
+    spySuppressed = false
+  }, 300)
 
   // ── Phase 1: move selection / preserve editor state ──
   const pos = item.pos
@@ -221,22 +245,84 @@ function scrollToHeading(item: HeadingItem): void {
   view.dispatch(tr)
   view.focus()
 
-  // ── Phase 2: precise DOM fallback (run after render settles) ──
-  // ProseMirror's scrollIntoView() is unreliable in MarkFlow's nested scroll
-  // container, so always perform the explicit container scroll as the final step.
+  // ── Phase 2: precise DOM scroll (double rAF to wait for settle) ──
+  const headings = extractHeadings()
+  const headingEls = headings
+    .map(h => getHeadingElement(view, h, []))
+    .filter((el): el is HTMLElement => el !== null)
+
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      scrollEditorToHeading(view, item, editorEl)
+      scrollEditorToHeading(view, item, editorEl, headingEls)
     })
   })
 }
 
 // ─── Scroll Spy ─────────────────────────────────────────────────────────────
 
+/**
+ * Pick the best active heading using "distance from top of viewport" algorithm.
+ *
+ * We track ALL visible entries (not just isIntersecting), compute the distance
+ * of each heading's top edge from the top of the viewport, and pick the smallest
+ * POSITIVE distance — i.e., the topmost heading that is currently visible in
+ * the editor area.
+ *
+ * This correctly handles:
+ * - Multiple headings on screen: picks the one closest to the top edge
+ * - Bottom of document: when scrollTop + clientHeight approaches maxScroll,
+ *   we fall back to the last heading
+ */
+function pickActiveHeading(
+  entries: IntersectionObserverEntry[],
+  headingEls: Map<Element, string>,
+  editorEl: HTMLElement,
+  allHeadingEls: HTMLElement[],
+): string | null {
+  if (entries.length === 0) return null
+
+  const scrollTop = editorEl.scrollTop
+  const clientHeight = editorEl.clientHeight
+  const maxScroll = editorEl.scrollHeight - clientHeight
+
+  // Special case: scrolled to the very bottom — always pick last heading
+  if (scrollTop >= maxScroll - 10) {
+    const last = allHeadingEls[allHeadingEls.length - 1]
+    return last ? (headingEls.get(last) ?? null) : null
+  }
+
+  // Find the heading with minimum positive distance from viewport top.
+  // A heading's "top in viewport" = boundingClientRect.top - editorTop + scrollTop
+  // But since root = editorEl, we can use boundingClientRect.top directly
+  // relative to editorEl's top edge.
+  let best: string | null = null
+  let bestScore = Infinity
+
+  for (const entry of entries) {
+    if (!headingEls.has(entry.target)) continue
+    const id = headingEls.get(entry.target)!
+
+    // entry.boundingClientRect.top is relative to editorEl (our root)
+    // Positive = below the top edge of editor, Negative = above it
+    const distFromTop = entry.boundingClientRect.top
+
+    // Only consider headings that are below the editor top (distFromTop >= 0)
+    // or very slightly above (within 5px, to handle edge cases)
+    if (distFromTop < -5) continue
+
+    if (distFromTop < bestScore) {
+      bestScore = distFromTop
+      best = id
+    }
+  }
+
+  return best
+}
+
 function setupScrollSpy(headings: HeadingItem[]): void {
-  if (observer) {
-    observer.disconnect()
-    observer = null
+  if (scrollSpyObserver) {
+    scrollSpyObserver.disconnect()
+    scrollSpyObserver = null
   }
 
   const view = getEditorView()
@@ -245,37 +331,62 @@ function setupScrollSpy(headings: HeadingItem[]): void {
   const editorEl = document.getElementById('editor')
   if (!editorEl) return
 
-  const headingEntries: Array<{ el: HTMLElement; id: string }> = []
-  headings.forEach((item) => {
-    const el = getHeadingElement(view, item)
-    if (el) headingEntries.push({ el, id: item.id })
-  })
+  // Build element→id map using coord-based fallback for stability
+  const headingEls = headings
+    .map(h => ({ el: getHeadingElement(view, h, []), id: h.id }))
+    .filter(({ el }) => el !== null) as Array<{ el: HTMLElement; id: string }>
 
-  if (headingEntries.length === 0) return
+  if (headingEls.length === 0) return
 
-  observer = new IntersectionObserver(
+  const elToId = new Map<Element, string>(headingEls.map(({ el, id }) => [el, id]))
+  const allEls = headingEls.map(h => h.el)
+
+  // Use a generous rootMargin: observe headings in the middle portion of the viewport
+  scrollSpyObserver = new IntersectionObserver(
     (entries) => {
-      const visible = entries
-        .filter(e => e.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      if (spySuppressed) return
 
-      if (visible.length > 0) {
-        const entry = headingEntries.find(({ el }) => el === visible[0].target)
-        const id = entry?.id
-        if (id && id !== activeId) {
-          activeId = id
-          updateActiveHighlight(id)
-        }
+      const winner = pickActiveHeading(entries, elToId, editorEl, allEls)
+      if (winner && winner !== activeId) {
+        activeId = winner
+        updateActiveHighlight(winner)
       }
     },
     {
       root: editorEl,
-      rootMargin: '-10% 0px -70% 0px',
+      // Observe headings in the top 85% of the viewport (not too close to edges)
+      rootMargin: '-5% 0px -15% 0px',
       threshold: 0,
     }
   )
 
-  headingEntries.forEach(({ el }) => observer!.observe(el))
+  headingEls.forEach(({ el }) => scrollSpyObserver!.observe(el))
+
+  // Also watch editor scroll for bottom-of-document detection
+  editorEl.addEventListener('scroll', handleEditorScroll, { passive: true })
+}
+
+let lastScrollTop = 0
+function handleEditorScroll(this: HTMLElement): void {
+  const scrollTop = this.scrollTop
+  const maxScroll = this.scrollHeight - this.clientHeight
+
+  // Bottom of document: pick the last heading
+  if (scrollTop >= maxScroll - 10 && scrollTop !== lastScrollTop) {
+    if (spySuppressed) return
+    const treeEl = document.getElementById('outline-tree')
+    if (!treeEl) return
+    const items = treeEl.querySelectorAll('.outline-item')
+    if (items.length === 0) return
+    const last = items[items.length - 1] as HTMLElement
+    const id = last.dataset.id
+    if (id && id !== activeId) {
+      activeId = id
+      updateActiveHighlight(id)
+    }
+  }
+
+  lastScrollTop = scrollTop
 }
 
 function updateActiveHighlight(id: string): void {
