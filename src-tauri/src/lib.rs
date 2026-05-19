@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
@@ -19,14 +19,16 @@ pub struct FileData {
 #[derive(Debug, Clone)]
 pub struct WindowState {
     pub file_path: Option<PathBuf>,
-    pub is_internal_save: bool,
+    /// Set of paths currently being saved by the application.
+    /// Used to prevent the file watcher from triggering for internal changes.
+    pub internal_saves: HashSet<PathBuf>,
 }
 
 impl Default for WindowState {
     fn default() -> Self {
         Self {
             file_path: None,
-            is_internal_save: false,
+            internal_saves: HashSet::new(),
         }
     }
 }
@@ -35,8 +37,9 @@ use watcher::WatcherMap;
 
 pub struct AppState {
     pub windows: Mutex<HashMap<String, WindowState>>,
-    /// File watchers per window. Dropping the WatcherHandle (mpsc::Sender) for a
-    /// window stops that watcher thread cleanly.
+    /// File watchers keyed by (window_label, file_path).
+    /// Dropping the WatcherHandle (mpsc::Sender) for a specific key stops that
+    /// watcher thread cleanly.
     pub watchers: WatcherMap,
 }
 
@@ -63,6 +66,28 @@ impl AppState {
     pub fn update_window_state(&self, window_label: &str, state: WindowState) {
         let mut windows = self.windows.lock().unwrap();
         windows.insert(window_label.to_string(), state);
+    }
+
+    pub fn add_internal_save(&self, window_label: &str, path: PathBuf) {
+        let mut windows = self.windows.lock().unwrap();
+        let state = windows.entry(window_label.to_string()).or_default();
+        state.internal_saves.insert(path);
+    }
+
+    pub fn remove_internal_save(&self, window_label: &str, path: &PathBuf) {
+        let mut windows = self.windows.lock().unwrap();
+        if let Some(state) = windows.get_mut(window_label) {
+            state.internal_saves.remove(path);
+        }
+    }
+
+    pub fn is_internal_save(&self, window_label: &str, path: &PathBuf) -> bool {
+        let windows = self.windows.lock().unwrap();
+        if let Some(state) = windows.get(window_label) {
+            state.internal_saves.contains(path)
+        } else {
+            false
+        }
     }
 }
 
@@ -129,6 +154,7 @@ pub fn run() {
             commands::open_file_path,
             commands::save_file,
             commands::save_file_as,
+            commands::stop_watching_file,
             commands::export_html,
             commands::load_custom_theme,
             commands::load_theme_css,

@@ -4,6 +4,7 @@ use crate::{AppState, FileData};
 use crate::file::{self, suggest_file_name};
 use crate::theme;
 use crate::watcher;
+use std::path::PathBuf;
 
 #[tauri::command]
 pub async fn open_file(
@@ -15,7 +16,7 @@ pub async fn open_file(
     if let Some(path) = file_path {
         let content = file::read_file(&path).await?;
         
-        // Setup file watcher for this file
+        // Update active file path for this window
         let window_label = window.label().to_string();
         {
             let mut window_state = state.get_or_create_window_state(&window_label);
@@ -50,10 +51,10 @@ pub async fn open_file_path(
     window: Window,
     state: State<'_, AppState>,
 ) -> Result<Option<FileData>, String> {
-    let path = std::path::PathBuf::from(path);
+    let path = PathBuf::from(path);
     let content = file::read_file(&path).await?;
     
-    // Setup file watcher
+    // Update active file path
     let window_label = window.label().to_string();
     {
         let mut window_state = state.get_or_create_window_state(&window_label);
@@ -80,6 +81,28 @@ pub async fn open_file_path(
 }
 
 #[tauri::command]
+pub fn stop_watching_file(
+    path: String,
+    window: Window,
+    state: State<'_, AppState>,
+) {
+    let path = PathBuf::from(path);
+    watcher::stop_watcher(&state.watchers, window.label(), path);
+}
+
+#[tauri::command]
+pub fn update_active_file(
+    path: Option<String>,
+    window: Window,
+    state: State<'_, AppState>,
+) {
+    let window_label = window.label().to_string();
+    let mut window_state = state.get_or_create_window_state(&window_label);
+    window_state.file_path = path.map(PathBuf::from);
+    state.update_window_state(&window_label, window_state);
+}
+
+#[tauri::command]
 pub async fn save_file(
     content: String,
     window: Window,
@@ -101,28 +124,36 @@ pub async fn save_file(
                 let mut window_state = state.get_or_create_window_state(&window_label);
                 window_state.file_path = Some(p.clone());
                 state.update_window_state(&window_label, window_state);
+                
+                // Start watching the newly saved file
+                let app_handle = window.app_handle().clone();
+                let _ = watcher::start_watcher(&state.watchers, &window_label, p.clone(), app_handle);
+                
                 p
             }
             None => return Ok(false),
         }
     };
     
-    // Mark as internal save to prevent watcher from triggering
-    {
-        let mut window_state = state.get_or_create_window_state(&window_label);
-        window_state.is_internal_save = true;
-        state.update_window_state(&window_label, window_state);
-    }
+    // Mark as internal save for this specific path
+    state.add_internal_save(&window_label, path.clone());
     
     // Write file
-    file::write_file(&path, &content).await?;
+    let res = file::write_file(&path, &content).await;
     
-    // Reset internal save flag after a delay
-    {
-        let mut window_state = state.get_or_create_window_state(&window_label);
-        window_state.is_internal_save = false;
-        state.update_window_state(&window_label, window_state);
-    }
+    // Remove internal save flag after a short delay to ensure any pending
+    // FS events are ignored.
+    let app_handle = window.app_handle().clone();
+    let label_clone = window_label.clone();
+    let path_clone = path.clone();
+    
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let state = app_handle.state::<AppState>();
+        state.remove_internal_save(&label_clone, &path_clone);
+    });
+    
+    res?;
     
     // Update window title
     if let Some(file_name) = path.file_name() {
@@ -138,31 +169,41 @@ pub async fn save_file_as(
     content: String,
     window: Window,
     state: State<'_, AppState>,
-) -> Result<bool, String> {
+) -> Result<Option<FileData>, String> {
     let window_label = window.label().to_string();
     let suggested_name = suggest_file_name(&content);
     
     let path = match file::save_file_dialog(&window, suggested_name.as_deref()).await? {
         Some(p) => p,
-        None => return Ok(false),
+        None => return Ok(None),
     };
     
     // Mark as internal save
-    {
-        let mut window_state = state.get_or_create_window_state(&window_label);
-        window_state.is_internal_save = true;
-        window_state.file_path = Some(path.clone());
-        state.update_window_state(&window_label, window_state);
-    }
+    state.add_internal_save(&window_label, path.clone());
     
     // Write file
-    file::write_file(&path, &content).await?;
+    let res = file::write_file(&path, &content).await;
     
     // Reset internal save flag
+    let app_handle = window.app_handle().clone();
+    let label_clone = window_label.clone();
+    let path_clone = path.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        let state = app_handle.state::<AppState>();
+        state.remove_internal_save(&label_clone, &path_clone);
+    });
+
+    res?;
+
+    // Update active path and start watching
     {
         let mut window_state = state.get_or_create_window_state(&window_label);
-        window_state.is_internal_save = false;
+        window_state.file_path = Some(path.clone());
         state.update_window_state(&window_label, window_state);
+        
+        let app_handle = window.app_handle().clone();
+        let _ = watcher::start_watcher(&state.watchers, &window_label, path.clone(), app_handle);
     }
     
     // Update window title
@@ -171,7 +212,10 @@ pub async fn save_file_as(
             .map_err(|e| e.to_string())?;
     }
     
-    Ok(true)
+    Ok(Some(FileData {
+        path: path.to_string_lossy().to_string(),
+        content,
+    }))
 }
 
 #[tauri::command]

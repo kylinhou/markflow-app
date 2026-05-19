@@ -89,6 +89,9 @@ function switchTab(id: string): void {
   // Update window title
   document.title = tab.name + (tab.isDirty ? ' •' : '') + ' — MarkFlow'
 
+  // Update active file in backend state so Ctrl+S saves the right file
+  invoke('update_active_file', { path: tab.path }).catch(() => {})
+
   renderTabs()
   updateOutline()
 }
@@ -99,10 +102,7 @@ function openTab(path: string | null, content: string, name: string): Tab {
   // If tab already exists, just switch to it
   const existing = tabs.find(t => t.id === id)
   if (existing) {
-    activeTabId = id
-    setMarkdown(existing.content)
-    renderTabs()
-    updateOutline()
+    switchTab(id)
     return existing
   }
 
@@ -121,6 +121,9 @@ function openTab(path: string | null, content: string, name: string): Tab {
   setMarkdown(content)
   document.title = name + ' — MarkFlow'
 
+  // Update active file in backend state
+  invoke('update_active_file', { path: tab.path }).catch(() => {})
+
   renderTabs()
   updateOutline()
 
@@ -128,8 +131,14 @@ function openTab(path: string | null, content: string, name: string): Tab {
 }
 
 function closeTab(id: string): void {
-  const index = tabs.findIndex(t => t.id === id)
-  if (index === -1) return
+  const tab = tabs.find(t => t.id === id)
+  if (!tab) return
+  const index = tabs.indexOf(tab)
+
+  // If the tab has a path, tell backend to stop watching it
+  if (tab.path) {
+    invoke('stop_watching_file', { path: tab.path }).catch(() => {})
+  }
 
   // If it's the last tab, create a new untitled one
   if (tabs.length === 1) {
@@ -145,9 +154,11 @@ function closeTab(id: string): void {
   // If closing the active tab, switch to another
   if (activeTabId === id) {
     const newIndex = Math.min(index, tabs.length - 1)
-    activeTabId = tabs[newIndex].id
-    setMarkdown(tabs[newIndex].content)
-    document.title = tabs[newIndex].name + ' — MarkFlow'
+    const nextTab = tabs[newIndex]
+    activeTabId = nextTab.id
+    setMarkdown(nextTab.content)
+    document.title = nextTab.name + ' — MarkFlow'
+    invoke('update_active_file', { path: nextTab.path }).catch(() => {})
   }
 
   renderTabs()
@@ -261,6 +272,7 @@ async function init(): Promise<void> {
     if (!tab) return
     try {
       if (tab.path) {
+        // backend uses WindowState.file_path, which we update in switchTab/openTab
         await invoke('save_file', { content: getMarkdown() })
         tab.isDirty = false
         document.title = tab.name + ' — MarkFlow'
@@ -270,11 +282,14 @@ async function init(): Promise<void> {
         const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
         if (result) {
           tab.path = result.path
+          tab.id = result.path // upgrade ID from untitled to path
           tab.name = tabName(result.path)
           tab.isDirty = false
           document.title = tab.name + ' — MarkFlow'
           renderTabs()
           updateOutline()
+          // Update backend active file since the path changed
+          invoke('update_active_file', { path: tab.path }).catch(() => {})
         }
       }
     } catch (e) {
@@ -310,11 +325,13 @@ async function init(): Promise<void> {
       const result = await invoke<FileData | null>('save_file_as', { content: getMarkdown() })
       if (result) {
         tab.path = result.path
+        tab.id = result.path
         tab.name = tabName(result.path)
         tab.isDirty = false
         document.title = tab.name + ' — MarkFlow'
         renderTabs()
         updateOutline()
+        invoke('update_active_file', { path: tab.path }).catch(() => {})
       }
     } catch (e) {
       console.error('Failed to save file as:', e)
@@ -373,6 +390,8 @@ async function init(): Promise<void> {
     const tab = tabs.find(t => t.path === changedPath)
     if (!tab) return
 
+    updateAgentStatus()
+
     try {
       const result = await invoke<FileData | null>('open_file_path', { path: changedPath })
       if (result) {
@@ -403,6 +422,33 @@ async function init(): Promise<void> {
 
   // Start with a blank tab
   openTab(null, '', 'Untitled')
+}
+
+// ─── Agent Status Indicator ──────────────────────────────────────────────────
+
+let agentStatusTimer: ReturnType<typeof setTimeout> | null = null
+
+function updateAgentStatus(): void {
+  const dot = document.getElementById('agent-dot')
+  if (!dot) return
+
+  // Transition to active (breathe animation)
+  dot.classList.remove('cooldown')
+  dot.classList.add('active')
+
+  if (agentStatusTimer) clearTimeout(agentStatusTimer)
+
+  // After 3s of no updates, transition to cooldown (green)
+  agentStatusTimer = setTimeout(() => {
+    dot.classList.remove('active')
+    dot.classList.add('cooldown')
+
+    // After another 5s, go back to idle
+    agentStatusTimer = setTimeout(() => {
+      dot.classList.remove('cooldown')
+      agentStatusTimer = null
+    }, 5000)
+  }, 3000)
 }
 
 // ─── Export ─────────────────────────────────────────────────────────────────
