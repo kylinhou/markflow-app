@@ -19,7 +19,8 @@ jobs:
   should-build:
     runs-on: ubuntu-latest
     outputs:
-      value: ${{ fromJson(steps.filter.outputs.changed) }}
+      # paths-filter changed output is the string "true" or "false"
+      value: ${{ steps.filter.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
 
