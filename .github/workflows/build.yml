@@ -15,11 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ── 1. 判断是否需要构建（跳过纯文档改动）───────────────────────────────
+  # ── 1. 过滤：仅针对 push 到 main 分支时检查文件变动 ─────────────────────
+  #     tag push 和 workflow_dispatch 直接跳过此 job，让 build 自然运行
   should-build:
     runs-on: ubuntu-latest
+    # 仅 main 分支 push 才运行；tag push / workflow_dispatch 跳过整个 job
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
-      # paths-filter changed output is the string "true" or "false"
       value: ${{ steps.filter.outputs.changed }}
     steps:
       - uses: actions/checkout@v4
@@ -39,9 +41,13 @@ jobs:
 
   # ── 2. 构建（三平台）─────────────────────────────────────────────────
   build:
+    # 依赖 should-build：当 main push 有代码改动时才运行
+    # tag push / workflow_dispatch 无视 should-build 输出，直接运行
     needs: should-build
-    # 未改变核心代码时跳过（文档-only 改动）；workflow_dispatch 总是允许
-    if: needs.should-build.outputs.value == 'true' || github.event_name == 'workflow_dispatch'
+    if: |
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.should-build.outputs.value == 'true')
     strategy:
       fail-fast: false
       matrix:
