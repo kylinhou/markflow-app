@@ -457,6 +457,27 @@ export function restoreOutlineState(): void {
   if (savedWidth) {
     sidebar.style.setProperty('--outline-width', savedWidth + 'px')
   }
+
+  // Restore sidebar direction (right by default)
+  const savedDir = localStorage.getItem('markflow-sidebar-direction') as 'right' | 'left' | null
+  const dir = savedDir || 'right'
+  layout.classList.remove('sidebar-right', 'sidebar-left')
+  layout.classList.add(`sidebar-${dir}`)
+  sidebar.classList.remove('sidebar-right', 'sidebar-left')
+  sidebar.classList.add(`sidebar-${dir}`)
+}
+
+/** Set sidebar position: 'right' or 'left'. Persists to localStorage. */
+export function setSidebarDirection(dir: 'right' | 'left'): void {
+  const sidebar = document.getElementById('outline-sidebar')
+  const layout = document.getElementById('editor-layout')
+  if (!sidebar || !layout) return
+
+  layout.classList.remove('sidebar-right', 'sidebar-left')
+  layout.classList.add(`sidebar-${dir}`)
+  sidebar.classList.remove('sidebar-right', 'sidebar-left')
+  sidebar.classList.add(`sidebar-${dir}`)
+  localStorage.setItem('markflow-sidebar-direction', dir)
 }
 
 // ─── Resize Handle ─────────────────────────────────────────────────────────

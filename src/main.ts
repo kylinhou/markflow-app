@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
 import { createEditor, getMarkdown, getHTML, setMarkdown } from './editor/editor'
 import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyContentWidth } from './themes/theme-manager'
-import { initOutline, updateOutline, toggleSidebar, restoreOutlineState } from './editor/outline'
+import { initOutline, updateOutline, toggleSidebar, restoreOutlineState, setSidebarDirection } from './editor/outline'
 import './themes/base.css'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -353,6 +353,12 @@ async function init(): Promise<void> {
     } catch (e) {
       console.error('Failed to export HTML:', e)
     }
+  })
+
+  // View → Sidebar → Right / Left
+  listen< string>('sidebar-direction', (event) => {
+    const dir = event.payload as 'right' | 'left'
+    setSidebarDirection(dir)
   })
 
   // Handle file opened from CLI (double-click or file association)

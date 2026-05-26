@@ -114,12 +114,26 @@ pub fn build_menu(app: &App) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // Sidebar submenu
+    let sidebar_right = MenuItem::with_id(app_handle, "sidebar-right", "Right", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let sidebar_left = MenuItem::with_id(app_handle, "sidebar-left", "Left", true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let sidebar_submenu = Submenu::with_items(
+        app_handle,
+        "Sidebar",
+        true,
+        &[&sidebar_right, &sidebar_left],
+    )
+    .map_err(|e| e.to_string())?;
+
     // View submenu
     let view_submenu = Submenu::with_items(
         app_handle,
         "View",
         true,
         &[
+            &sidebar_submenu,
             &PredefinedMenuItem::separator(app_handle).map_err(|e| e.to_string())?,
             &PredefinedMenuItem::fullscreen(app_handle, None).map_err(|e| e.to_string())?,
         ],
@@ -188,6 +202,12 @@ pub fn build_menu(app: &App) -> Result<(), String> {
                 }
                 "import-theme" => {
                     let _ = window.emit("menu-import-theme", ());
+                }
+                "sidebar-right" => {
+                    let _ = window.emit("sidebar-direction", "right");
+                }
+                "sidebar-left" => {
+                    let _ = window.emit("sidebar-direction", "left");
                 }
                 "about" => {
                     let _ = app

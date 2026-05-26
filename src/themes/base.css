@@ -275,6 +275,31 @@ body:not(.outline-sidebar-visible) #editor {
   display: block;
 }
 
+/* ─── Sidebar direction ────────────────────────────────────────────── */
+
+/*
+  DOM order (both modes):  #outline-sidebar  #resize-handle  #editor
+  flex-direction: row (left-to-right)
+
+  sidebar-right  →  sidebar on RIGHT  (editor order=1, sidebar order=2)
+  sidebar-left   →  sidebar on LEFT   (sidebar order=1, editor order=3)
+*/
+
+#editor-layout.sidebar-right #outline-sidebar { order: 2; border-left: 1px solid var(--border-color); border-right: none; }
+#editor-layout.sidebar-right #resize-handle   { order: 3; }
+#editor-layout.sidebar-right #editor          { order: 1; }
+
+#editor-layout.sidebar-left #outline-sidebar { order: 1; border-left: none; border-right: 1px solid var(--border-color); }
+#editor-layout.sidebar-left #resize-handle   { order: 2; }
+#editor-layout.sidebar-left #editor          { order: 3; }
+
+/* resize handle: hidden by default, shown when sidebar is visible */
+#outline-sidebar.sidebar-left ~ #resize-handle,
+#outline-sidebar.sidebar-right ~ #resize-handle { display: none; }
+
+#outline-sidebar:not(.outline-hidden).sidebar-left ~ #resize-handle,
+#outline-sidebar:not(.outline-hidden).sidebar-right ~ #resize-handle { display: block; }
+
 #resize-handle:hover,
 #resize-handle.dragging {
   background: var(--link-color);
