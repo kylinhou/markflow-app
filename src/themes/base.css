@@ -588,6 +588,15 @@ body, body.theme-light {
   --blockquote-border: #d0d7de;
   --table-header-bg: #f6f8fa;
   --selection-bg: rgba(9, 105, 218, 0.15);
+  /* Prism syntax highlighting variables */
+  --prism-comment: #6a737d;
+  --prism-punctuation: #24292f;
+  --prism-constant: #005cc5;
+  --prism-string: #032f62;
+  --prism-operator: #d73a49;
+  --prism-keyword: #d73a49;
+  --prism-function: #6f42c1;
+  --prism-variable: #e36209;
 }
 
 body.theme-dark {
@@ -601,6 +610,15 @@ body.theme-dark {
   --blockquote-border: #30363d;
   --table-header-bg: #161b22;
   --selection-bg: rgba(88, 166, 255, 0.2);
+  /* Prism syntax highlighting variables */
+  --prism-comment: #8b949e;
+  --prism-punctuation: #c9d1d9;
+  --prism-constant: #79c0ff;
+  --prism-string: #a5d6ff;
+  --prism-operator: #ff7b72;
+  --prism-keyword: #ff7b72;
+  --prism-function: #d2a8ff;
+  --prism-variable: #ffa657;
 }
 
 body.theme-elegant {
@@ -617,6 +635,15 @@ body.theme-elegant {
   --table-header-bg: #eae6e1;
   --table-border: #d8d3ce;
   --selection-bg: rgba(196, 75, 43, 0.2);
+  /* Prism syntax highlighting variables */
+  --prism-comment: #777777;
+  --prism-punctuation: #2c2c2c;
+  --prism-constant: #2b6cb0;
+  --prism-string: #3b7a57;
+  --prism-operator: #c44b2b;
+  --prism-keyword: #c44b2b;
+  --prism-function: #b83280;
+  --prism-variable: #d97706;
 }
 
 body.theme-elegant #editor .ProseMirror {
@@ -673,6 +700,15 @@ body.theme-paper {
   --table-border:     #2D3245;
   --selection-bg:     rgba(124, 77, 255, 0.2);
   --outline-width:    220px;
+  /* Prism syntax highlighting variables */
+  --prism-comment: #94A3B8;
+  --prism-punctuation: #E2E8F0;
+  --prism-constant: #FB7185;
+  --prism-string: #38BDF8;
+  --prism-operator: #F472B6;
+  --prism-keyword: #F472B6;
+  --prism-function: #C4B5FD;
+  --prism-variable: #FDBA74;
 
   /* Typography — antialiased for all text */
   font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif;
@@ -1323,6 +1359,15 @@ body.theme-newsprint {
   --blockquote-border: #999;
   --table-header-bg: #eae6de;
   --selection-bg: rgba(44, 95, 138, 0.15);
+  /* Prism syntax highlighting variables */
+  --prism-comment: #666666;
+  --prism-punctuation: #1a1a1a;
+  --prism-constant: #2c5f8a;
+  --prism-string: #1e8a5f;
+  --prism-operator: #b22222;
+  --prism-keyword: #2c5f8a;
+  --prism-function: #8b008b;
+  --prism-variable: #d97706;
 }
 
 body.theme-newsprint #editor .ProseMirror {
@@ -1468,5 +1513,141 @@ body.theme-newsprint #editor .ProseMirror {
   background: var(--link-color, #7C4DFF);
   border: none;
   cursor: pointer;
+}
+
+/* ── Mermaid Preview Background & Adaptations ── */
+.milkdown-mermaid-preview {
+  padding: 1.5rem;
+  border-radius: 8px;
+  background: var(--code-block-bg, #f6f8fa);
+  border: 1px solid var(--border-color, #e1e4e8);
+  overflow-x: auto;
+  margin: 1.2em 0;
+}
+
+/* 适配暗色模式的主题背景 — 使用各主题已定义的 CSS 变量自动适配 */
+body.dark .milkdown-mermaid-preview,
+body[data-theme='dark'] .milkdown-mermaid-preview,
+body.theme-dark .milkdown-mermaid-preview,
+body.theme-paper .milkdown-mermaid-preview,
+.dark-theme .milkdown-mermaid-preview {
+  background: var(--surface-color, var(--code-block-bg, #161b22));
+}
+
+/* Mermaid SVG 图表容器约束：不干预 SVG 内部渲染。
+   布局时就使用正确的字体，否则 CSS 事后覆盖会导致文字和节点框不匹配。
+   甘特图等横向展开的图表通过容器 overflow-x: auto 水平滚动。 */
+.milkdown-mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+  min-height: 80px;
+}
+
+/* 甘特图 SVG 不限制最大宽度，保持原始尺寸以确保可读性，
+   通过预览容器的 overflow-x: auto 水平滚动查看完整内容。 */
+.milkdown-mermaid-preview svg[aria-roledescription="gantt"] {
+  max-width: none;
+}
+
+/* ── Code Syntax Highlighting (PrismJS) ── */
+#editor .ProseMirror pre .token.comment,
+#editor .ProseMirror pre .token.prolog,
+#editor .ProseMirror pre .token.doctype,
+#editor .ProseMirror pre .token.cdata {
+  color: var(--prism-comment);
+  font-style: italic;
+}
+
+#editor .ProseMirror pre .token.punctuation {
+  color: var(--prism-punctuation);
+}
+
+#editor .ProseMirror pre .token.property,
+#editor .ProseMirror pre .token.tag,
+#editor .ProseMirror pre .token.boolean,
+#editor .ProseMirror pre .token.number,
+#editor .ProseMirror pre .token.constant,
+#editor .ProseMirror pre .token.symbol,
+#editor .ProseMirror pre .token.deleted {
+  color: var(--prism-constant);
+}
+
+#editor .ProseMirror pre .token.selector,
+#editor .ProseMirror pre .token.attr-name,
+#editor .ProseMirror pre .token.string,
+#editor .ProseMirror pre .token.char,
+#editor .ProseMirror pre .token.builtin,
+#editor .ProseMirror pre .token.inserted {
+  color: var(--prism-string);
+}
+
+#editor .ProseMirror pre .token.operator,
+#editor .ProseMirror pre .token.entity,
+#editor .ProseMirror pre .token.url,
+#editor .ProseMirror pre .language-css .token.string,
+#editor .ProseMirror pre .style .token.string {
+  color: var(--prism-operator);
+}
+
+#editor .ProseMirror pre .token.atrule,
+#editor .ProseMirror pre .token.attr-value,
+#editor .ProseMirror pre .token.keyword {
+  color: var(--prism-keyword);
+  font-weight: 600;
+}
+
+#editor .ProseMirror pre .token.function,
+#editor .ProseMirror pre .token.class-name {
+  color: var(--prism-function);
+}
+
+#editor .ProseMirror pre .token.regex,
+#editor .ProseMirror pre .token.important,
+#editor .ProseMirror pre .token.variable {
+  color: var(--prism-variable);
+}
+
+#editor .ProseMirror pre .token.important,
+#editor .ProseMirror pre .token.bold {
+  font-weight: bold;
+}
+
+#editor .ProseMirror pre .token.italic {
+  font-style: italic;
+}
+
+/* ── KaTeX Math Equation Styling ── */
+#editor .ProseMirror .math-block,
+#editor .ProseMirror .math-inline {
+  font-family: 'KaTeX_Main', 'Times New Roman', serif;
+}
+
+#editor .ProseMirror .math-block {
+  display: block;
+  text-align: center;
+  margin: 1.2em 0;
+  padding: 12px;
+  background: var(--code-block-bg);
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+}
+
+#editor .ProseMirror .math-inline {
+  display: inline-block;
+  padding: 0 4px;
+  background: var(--code-bg);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+/* Math input editing styles in headless mode */
+#editor .ProseMirror .math-block[data-editing="true"],
+#editor .ProseMirror .math-inline[data-editing="true"] {
+  font-family: var(--font-mono, monospace);
+  background: var(--code-block-bg);
+  color: var(--text-color);
+  border: 1px dashed var(--link-color);
+  padding: 4px 8px;
 }
 

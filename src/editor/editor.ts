@@ -10,8 +10,12 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { clipboard } from '@milkdown/kit/plugin/clipboard'
 import { replaceAll } from '@milkdown/kit/utils'
 import { htmlView } from './html-view'
+import { codeBlockView } from './code-block-view'
 
 import '@milkdown/kit/prose/view/style/prosemirror.css'
+import { prism } from '@milkdown/plugin-prism'
+import { math } from '@milkdown/plugin-math'
+import 'katex/dist/katex.min.css'
 
 let editorInstance: Editor | null = null
 let editorViewInstance: EditorView | null = null
@@ -93,6 +97,9 @@ export async function createEditor(
     .use(listener)
     .use(clipboard)
     .use(htmlView)
+    .use(codeBlockView)
+    .use(prism)
+    .use(math)
     .create()
 
   // Get editorViewInstance AFTER create() completes — editorViewCtx is only
