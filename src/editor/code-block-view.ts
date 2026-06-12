@@ -72,10 +72,13 @@ export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor
     // 创建容器
     const dom = document.createElement('div')
     dom.classList.add('milkdown-code-block-container')
+    dom.setAttribute('contenteditable', 'false')
 
     // 代码编辑器 pre > code
     const pre = document.createElement('pre')
+    pre.setAttribute('contenteditable', 'true')
     const code = document.createElement('code')
+    code.setAttribute('contenteditable', 'true')
     pre.appendChild(code)
     dom.appendChild(pre)
 
