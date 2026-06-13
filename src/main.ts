@@ -5,6 +5,13 @@ import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyCon
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState, setSidebarDirection } from './editor/outline'
 import './themes/base.css'
 
+// Expose editor API to window for testing/automation
+;(window as any).setMarkdown = setMarkdown
+;(window as any).getMarkdown = getMarkdown
+;(window as any).applyTheme = applyTheme
+
+
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface FileData {

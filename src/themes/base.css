@@ -1551,6 +1551,22 @@ body.theme-newsprint #editor .ProseMirror {
   min-height: 80px;
 }
 
+/* 
+   【避坑指南】解决流程图 (Flowchart) 节点文字在垂直方向展示不全/被截断的 Bug：
+   - 根本原因：Mermaid v10+ 流程图节点文本使用 <foreignObject> 渲染 HTML。
+     而 HTML 中的 <p> 标签在浏览器中默认具有上下各 1em (约 16px) 的外边距 (margin)。
+     当我们在各主题中强制应用了不同的字体或字号后，字体的度量基线发生变化，
+     加上 <p> 默认的 margin 挤压，会导致文字被整体推向下边界，超出了 <foreignObject> 的硬高度限制（由 SVG 属性写死），
+     从而导致文字下半截（如“监控”的“工”、“协作”的下半部）被 SVG 默认的 overflow: hidden 齐刷刷截断。
+   - 解决方案：强制清除所有流程图节点内 <p> 标签的 margin 和 padding，并规范 line-height。
+*/
+.milkdown-mermaid-preview svg .nodeLabel p,
+.milkdown-mermaid-preview svg .node .label p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+}
+
 /* 甘特图 SVG 不限制最大宽度，保持原始尺寸以确保可读性，
    通过预览容器的 overflow-x: auto 水平滚动查看完整内容。 */
 .milkdown-mermaid-preview svg[aria-roledescription="gantt"] {
@@ -1633,17 +1649,44 @@ body.theme-elegant .milkdown-mermaid-preview svg [id$="crosshead"] path {
   fill: none !important;
 }
 
-/* 连线文字/标签背景 */
-body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel rect {
-  fill: #fdfcf7 !important; /* 与容器背景融合 */
+/* 连线文字/标签 foreignObject 容器允许溢出显示以支持 padding */
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabels foreignObject,
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel foreignObject {
+  overflow: visible !important;
 }
 
-/* 连线文字/标签 */
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabels div.labelBkg,
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel div.labelBkg,
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabels div,
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel div {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  background: #fdfcf7 !important;
+  background-color: #fdfcf7 !important;
+  border-radius: 2px !important;
+  padding: 2px 5px !important; /* 精致小巧的内边距，刚好可以遮挡线条而不显笨重 */
+  margin: 0 !important;
+  border: 1px solid #d8d3ce !important; /* 精致的淡墨色旁批边框 */
+  box-shadow: none !important; /* 彻底去除平面纸质感下不需要的投影 */
+}
+
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabels span,
 body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel span,
-body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel text {
-  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabels p,
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel p {
+  background: transparent !important;
+  background-color: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
   font-size: 11px !important;
-  color: #8a7e74 !important; /* 淡墨旁批风格 */
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  color: #8a7e74 !important; /* 淡墨色 */
   fill: #8a7e74 !important;
   font-style: italic !important;
 }
@@ -1664,6 +1707,27 @@ body.theme-elegant .milkdown-mermaid-preview svg text.actor {
   font-weight: bold !important;
   fill: #2c2c2c !important;
   color: #2c2c2c !important;
+}
+
+/* 火柴人角色 (Actor-man) */
+body.theme-elegant .milkdown-mermaid-preview svg .actor-man circle {
+  fill: #faf6f0 !important;
+  stroke: #c44b2b !important; /* 朱砂红头部 */
+  stroke-width: 2px !important;
+}
+
+body.theme-elegant .milkdown-mermaid-preview svg .actor-man line {
+  stroke: #c44b2b !important; /* 朱砂红躯干四肢 */
+  stroke-width: 2px !important;
+}
+
+/* 生命线激活柱 (Activation Bar) */
+body.theme-elegant .milkdown-mermaid-preview svg .activation {
+  fill: #faf6f0 !important;
+  stroke: #b8977a !important; /* 褐石色边框 */
+  stroke-width: 1px !important;
+  rx: 1px !important;
+  ry: 1px !important;
 }
 
 /* Actor 垂直生命线 */
@@ -1740,19 +1804,19 @@ body.theme-elegant .milkdown-mermaid-preview svg .task {
 }
 
 /* 活跃任务 (Active Task) */
-body.theme-elegant .milkdown-mermaid-preview svg .task.active {
+body.theme-elegant .milkdown-mermaid-preview svg rect.task[class*="active"] {
   fill: #f5ebd6 !important; /* 竹纸黄 */
   stroke: #c44b2b !important; /* 朱砂红 */
 }
 
 /* 关键任务 (Critical Task) */
-body.theme-elegant .milkdown-mermaid-preview svg .task.crit {
+body.theme-elegant .milkdown-mermaid-preview svg rect.task[class*="crit"] {
   fill: #c44b2b !important; /* 朱砂红 */
   stroke: #8b3420 !important; /* 暗红色 */
 }
 
 /* 完成任务 (Done Task) */
-body.theme-elegant .milkdown-mermaid-preview svg .task.done {
+body.theme-elegant .milkdown-mermaid-preview svg rect.task[class*="done"] {
   fill: #ede8e2 !important; /* 淡淡的灰褐色 */
   stroke: #b8977a !important;
 }
@@ -1766,28 +1830,20 @@ body.theme-elegant .milkdown-mermaid-preview svg .taskText * {
   font-weight: bold !important;
 }
 
-/* 关键任务文字（使用宣纸白保证对比度） */
-body.theme-elegant .milkdown-mermaid-preview svg .taskText.crit,
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextOutside.crit,
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextInside.crit,
-body.theme-elegant .milkdown-mermaid-preview svg .task.crit + text,
-body.theme-elegant .milkdown-mermaid-preview svg .taskText.crit * {
-  fill: #fdfcf7 !important; /* 宣纸白 */
-  color: #fdfcf7 !important;
-}
-
-/* 活跃与普通任务文字（暗色） */
-body.theme-elegant .milkdown-mermaid-preview svg .taskText.active,
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextOutside.active,
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextInside.active,
-body.theme-elegant .milkdown-mermaid-preview svg .taskText.done,
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextOutside.done,
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextInside.done,
-body.theme-elegant .milkdown-mermaid-preview svg .taskText:not(.crit),
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextOutside:not(.crit),
-body.theme-elegant .milkdown-mermaid-preview svg .taskTextInside:not(.crit) {
+/* 活跃与普通任务文字（暗色，因为背景是轻快米黄/淡灰褐） */
+body.theme-elegant .milkdown-mermaid-preview svg text.taskText,
+body.theme-elegant .milkdown-mermaid-preview svg text.taskTextOutside,
+body.theme-elegant .milkdown-mermaid-preview svg text.taskTextInside,
+body.theme-elegant .milkdown-mermaid-preview svg text.taskText * {
   fill: #2c2c2c !important;
   color: #2c2c2c !important;
+}
+
+/* 关键任务文字（使用宣纸白保证对比度，因为背景是深朱砂红） */
+body.theme-elegant .milkdown-mermaid-preview svg [class*="critText"],
+body.theme-elegant .milkdown-mermaid-preview svg [class*="critText"] * {
+  fill: #fdfcf7 !important; /* 宣纸白 */
+  color: #fdfcf7 !important;
 }
 
 /* 网格与分割线 */
@@ -1836,6 +1892,17 @@ body.theme-paper .milkdown-mermaid-preview {
   border-radius: 8px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 0 1px rgba(124, 77, 255, 0.25) !important;
   padding: 2.2rem !important;
+}
+
+/* ── 统一 SVG 内部所有文本的字体与颜色（防止出现继承浅灰色/黑色看不清的问题） ── */
+body.theme-paper .milkdown-mermaid-preview svg text,
+body.theme-paper .milkdown-mermaid-preview svg tspan,
+body.theme-paper .milkdown-mermaid-preview svg span,
+body.theme-paper .milkdown-mermaid-preview svg p,
+body.theme-paper .milkdown-mermaid-preview svg div {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  fill: #e2e8f0 !important;
+  color: #e2e8f0 !important;
 }
 
 /* 节点容器（流程图） */
@@ -1896,17 +1963,43 @@ body.theme-paper .milkdown-mermaid-preview svg [id$="crosshead"] path {
   fill: none !important;
 }
 
-/* 连线文字/标签背景 */
-body.theme-paper .milkdown-mermaid-preview svg .edgeLabel rect {
-  fill: #1a1d2b !important; /* 与容器背景融合 */
+/* 连线文字/标签 foreignObject 容器允许溢出显示以支持 padding */
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabels foreignObject,
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel foreignObject {
+  overflow: visible !important;
 }
 
-/* 连线文字/标签 */
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabels div.labelBkg,
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel div.labelBkg,
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabels div,
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel div {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  background: #1a1d2b !important;
+  background-color: #1a1d2b !important;
+  border-radius: 3px !important;
+  padding: 2px 6px !important;
+  margin: 0 !important;
+  border: 1px solid #2d3245 !important;
+}
+
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabels span,
 body.theme-paper .milkdown-mermaid-preview svg .edgeLabel span,
-body.theme-paper .milkdown-mermaid-preview svg .edgeLabel text {
-  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabels p,
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel p {
+  background: transparent !important;
+  background-color: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
   font-size: 11px !important;
-  color: #94a3b8 !important; /* 辅助灰蓝 */
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  color: #94a3b8 !important; /* 灰蓝色 */
   fill: #94a3b8 !important;
 }
 
@@ -1921,10 +2014,35 @@ body.theme-paper .milkdown-mermaid-preview svg .actor {
   filter: drop-shadow(0 0 2px rgba(124, 77, 255, 0.1)) !important;
 }
 
+body.theme-paper .milkdown-mermaid-preview svg .actor text,
+body.theme-paper .milkdown-mermaid-preview svg .actor span,
 body.theme-paper .milkdown-mermaid-preview svg text.actor {
   font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
   font-weight: 600 !important;
   fill: #e2e8f0 !important;
+  color: #e2e8f0 !important;
+}
+
+/* 火柴人角色 (Actor-man) */
+body.theme-paper .milkdown-mermaid-preview svg .actor-man circle {
+  fill: #1e2235 !important; /* 深暗海军蓝背景 */
+  stroke: #7c4dff !important; /* 霓虹紫头部 */
+  stroke-width: 2.5px !important;
+}
+
+body.theme-paper .milkdown-mermaid-preview svg .actor-man line {
+  stroke: #7c4dff !important; /* 霓虹紫躯干四肢 */
+  stroke-width: 2.5px !important;
+}
+
+/* 生命线激活柱 (Activation Bar) */
+body.theme-paper .milkdown-mermaid-preview svg .activation {
+  fill: #112530 !important; /* 科技深蓝 */
+  stroke: #38bdf8 !important; /* 荧光青边框 */
+  stroke-width: 1.2px !important;
+  rx: 2px !important;
+  ry: 2px !important;
+  filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.2)) !important; /* 荧光发光效果 */
 }
 
 /* Actor 垂直生命线 */
@@ -2005,20 +2123,20 @@ body.theme-paper .milkdown-mermaid-preview svg .task {
 }
 
 /* 活跃任务 (Active Task) */
-body.theme-paper .milkdown-mermaid-preview svg .task.active {
+body.theme-paper .milkdown-mermaid-preview svg rect.task[class*="active"] {
   fill: #112530 !important;
   stroke: #38bdf8 !important; /* 荧光青 */
 }
 
 /* 关键任务 (Critical Task) */
-body.theme-paper .milkdown-mermaid-preview svg .task.crit {
-  fill: #fb7185 !important; /* 玫瑰红 */
-  stroke: #f43f5e !important;
+body.theme-paper .milkdown-mermaid-preview svg rect.task[class*="crit"] {
+  fill: #4c1d24 !important; /* 暗红色，在深色背景下更和谐且提高白色字对比度 */
+  stroke: #fb7185 !important; /* 玫瑰红描边 */
 }
 
 /* 完成任务 (Done Task) */
-body.theme-paper .milkdown-mermaid-preview svg .task.done {
-  fill: #1a1d2b !important;
+body.theme-paper .milkdown-mermaid-preview svg rect.task[class*="done"] {
+  fill: #141724 !important;
   stroke: #2d3245 !important;
 }
 
@@ -2031,48 +2149,54 @@ body.theme-paper .milkdown-mermaid-preview svg .taskText * {
   font-weight: 500 !important;
 }
 
-/* 关键任务文字（深色以保证在玫瑰红背景下的对比度） */
-body.theme-paper .milkdown-mermaid-preview svg .taskText.crit,
-body.theme-paper .milkdown-mermaid-preview svg .taskTextOutside.crit,
-body.theme-paper .milkdown-mermaid-preview svg .taskTextInside.crit,
-body.theme-paper .milkdown-mermaid-preview svg .task.crit + text,
-body.theme-paper .milkdown-mermaid-preview svg .taskText.crit * {
-  fill: #0f111a !important;
-  color: #0f111a !important;
-}
-
 /* 活跃与普通任务文字（浅色） */
-body.theme-paper .milkdown-mermaid-preview svg .taskText.active,
-body.theme-paper .milkdown-mermaid-preview svg .taskTextOutside.active,
-body.theme-paper .milkdown-mermaid-preview svg .taskTextInside.active,
-body.theme-paper .milkdown-mermaid-preview svg .taskText.done,
-body.theme-paper .milkdown-mermaid-preview svg .taskTextOutside.done,
-body.theme-paper .milkdown-mermaid-preview svg .taskTextInside.done,
-body.theme-paper .milkdown-mermaid-preview svg .taskText:not(.crit),
-body.theme-paper .milkdown-mermaid-preview svg .taskTextOutside:not(.crit),
-body.theme-paper .milkdown-mermaid-preview svg .taskTextInside:not(.crit) {
+body.theme-paper .milkdown-mermaid-preview svg text.taskText,
+body.theme-paper .milkdown-mermaid-preview svg text.taskTextOutside,
+body.theme-paper .milkdown-mermaid-preview svg text.taskTextInside,
+body.theme-paper .milkdown-mermaid-preview svg text.taskText * {
   fill: #e2e8f0 !important;
   color: #e2e8f0 !important;
 }
 
-/* 网格与分割线 */
+/* 关键任务文字（玫瑰红以保证在暗红背景下的高对比度与科技感） */
+body.theme-paper .milkdown-mermaid-preview svg [class*="critText"],
+body.theme-paper .milkdown-mermaid-preview svg [class*="critText"] * {
+  fill: #fb7185 !important;
+  color: #fb7185 !important;
+}
+
+/* 网格、刻度与时间分割线 */
 body.theme-paper .milkdown-mermaid-preview svg .grid line,
 body.theme-paper .milkdown-mermaid-preview svg .tick line,
 body.theme-paper .milkdown-mermaid-preview svg .grid path {
-  stroke: #2d3245 !important;
+  stroke: #2d3245 !important; /* 暗灰网格线 */
   stroke-width: 1px !important;
+}
+
+/* 偶数行背景高亮格带，避免在暗色主题下呈现白蒙蒙的色带 */
+body.theme-paper .milkdown-mermaid-preview svg rect.grid-band,
+body.theme-paper .milkdown-mermaid-preview svg .grid-band {
+  fill: #141724 !important; /* 极深灰蓝色，自然融入暗夜背景 */
+  fill-opacity: 0.5 !important;
+}
+
+/* 时间轴与刻度文字颜色 */
+body.theme-paper .milkdown-mermaid-preview svg .grid text,
+body.theme-paper .milkdown-mermaid-preview svg .tick text {
+  fill: #94a3b8 !important; /* 统一为清晰的灰蓝色 */
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
 }
 
 /* 今天指示线 */
 body.theme-paper .milkdown-mermaid-preview svg .today {
-  stroke: #fb7185 !important;
+  stroke: #fb7185 !important; /* 科技感玫瑰红指示线 */
   stroke-dasharray: 2 2 !important;
   stroke-width: 2px !important;
 }
 
 /* 侧栏/区间背景 (Section Band) */
 body.theme-paper .milkdown-mermaid-preview svg .section {
-  fill: #11131e !important;
+  fill: #11131e !important; /* 区间底板保持极暗的蓝黑底色 */
   stroke: none !important;
 }
 
