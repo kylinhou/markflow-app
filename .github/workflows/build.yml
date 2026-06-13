@@ -19,7 +19,7 @@ jobs:
   should-build:
     runs-on: ubuntu-latest
     outputs:
-      value: ${{ steps.filter.outputs.changed }}
+      value: ${{ steps.filter.outputs.core }}
     steps:
       - uses: actions/checkout@v4
 
