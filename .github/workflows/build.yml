@@ -27,14 +27,14 @@ jobs:
         id: filter
         with:
           filters: |
-            core: |
-              src/**
-              src-tauri/**
-              package.json
-              package-lock.json
-              Cargo.toml
-              Cargo.lock
-              tauri.conf.json
+            core:
+              - 'src/**'
+              - 'src-tauri/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'tauri.conf.json'
 
   # ── 2. 构建（三平台）─────────────────────────────────────────────────
   build:
