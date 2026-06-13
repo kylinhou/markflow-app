@@ -1709,6 +1709,165 @@ body.theme-elegant .milkdown-mermaid-preview svg .stateGroup text {
   fill: #2c2c2c !important;
 }
 
+/* ── Paper Theme Mermaid Custom Styling ── */
+body.theme-paper .milkdown-mermaid-preview {
+  background: #1a1d2b !important; /* 冷调暗青背景 */
+  border: 1px solid #2d3245 !important; /* 细腻冷灰边框 */
+  border-radius: 8px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 0 1px rgba(124, 77, 255, 0.25) !important;
+  padding: 2.2rem !important;
+}
+
+/* 节点容器（流程图） */
+body.theme-paper .milkdown-mermaid-preview svg .node rect,
+body.theme-paper .milkdown-mermaid-preview svg .node circle,
+body.theme-paper .milkdown-mermaid-preview svg .node polygon,
+body.theme-paper .milkdown-mermaid-preview svg .node path,
+body.theme-paper .milkdown-mermaid-preview svg .node .label-container {
+  fill: #1e2235 !important; /* 略亮的深冷灰 */
+  stroke: #7c4dff !important; /* 霓虹极光紫 */
+  stroke-width: 1.5px !important;
+  rx: 6px !important; /* 现代感圆角 */
+  ry: 6px !important;
+  filter: drop-shadow(0 0 2px rgba(124, 77, 255, 0.15)) !important;
+  transition: filter 0.25s ease, stroke 0.25s ease, fill 0.25s ease !important;
+}
+
+/* 悬停动效：描边变为荧光蓝，外发光增强 */
+body.theme-paper .milkdown-mermaid-preview svg .node:hover rect,
+body.theme-paper .milkdown-mermaid-preview svg .node:hover circle,
+body.theme-paper .milkdown-mermaid-preview svg .node:hover polygon,
+body.theme-paper .milkdown-mermaid-preview svg .node:hover path,
+body.theme-paper .milkdown-mermaid-preview svg .node:hover .label-container {
+  fill: #22273e !important;
+  stroke: #5c9dff !important; /* 天空荧光蓝 */
+  filter: drop-shadow(0 0 6px rgba(92, 157, 255, 0.45)) !important;
+}
+
+/* 节点文字 */
+body.theme-paper .milkdown-mermaid-preview svg .node .label,
+body.theme-paper .milkdown-mermaid-preview svg .node .label * {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  font-weight: 500 !important;
+  fill: #e2e8f0 !important;
+  color: #e2e8f0 !important;
+}
+
+/* 连线与箭头 */
+body.theme-paper .milkdown-mermaid-preview svg .edgePath .path {
+  stroke: #475569 !important; /* 钢青冷灰连线 */
+  stroke-width: 1.5px !important;
+}
+
+/* 箭头颜色 */
+body.theme-paper .milkdown-mermaid-preview svg .markerPath,
+body.theme-paper .milkdown-mermaid-preview svg .arrowheadPath,
+body.theme-paper .milkdown-mermaid-preview svg [class*="arrowhead"] {
+  fill: #7c4dff !important;
+  stroke: #7c4dff !important;
+  stroke-width: 1px !important;
+}
+
+/* 连线文字/标签背景 */
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel rect {
+  fill: #1a1d2b !important; /* 与容器背景融合 */
+}
+
+/* 连线文字/标签 */
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel span,
+body.theme-paper .milkdown-mermaid-preview svg .edgeLabel text {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  font-size: 11px !important;
+  color: #94a3b8 !important; /* 辅助灰蓝 */
+  fill: #94a3b8 !important;
+}
+
+/* ── 时序图 (Sequence Diagram) ── */
+/* Actor 角色框 */
+body.theme-paper .milkdown-mermaid-preview svg .actor {
+  fill: #1e2235 !important;
+  stroke: #7c4dff !important;
+  stroke-width: 1.5px !important;
+  rx: 4px !important;
+  ry: 4px !important;
+  filter: drop-shadow(0 0 2px rgba(124, 77, 255, 0.1)) !important;
+}
+
+body.theme-paper .milkdown-mermaid-preview svg text.actor {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  font-weight: 600 !important;
+  fill: #e2e8f0 !important;
+}
+
+/* Actor 垂直生命线 */
+body.theme-paper .milkdown-mermaid-preview svg line.actor-line {
+  stroke: #2d3245 !important; /* 细微暗灰线 */
+  stroke-dasharray: 4 4 !important;
+  stroke-width: 1px !important;
+}
+
+/* 消息连线 */
+body.theme-paper .milkdown-mermaid-preview svg .messageLine0,
+body.theme-paper .milkdown-mermaid-preview svg .messageLine1 {
+  stroke: #94a3b8 !important;
+  stroke-width: 1.5px !important;
+}
+
+/* 消息文字 */
+body.theme-paper .milkdown-mermaid-preview svg .messageText {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  fill: #e2e8f0 !important;
+  color: #e2e8f0 !important;
+  font-size: 12px !important;
+}
+
+/* 备注 (Note) 框 - 控制台日志发光块 */
+body.theme-paper .milkdown-mermaid-preview svg .note {
+  fill: #112530 !important; /* 暗蓝色背景 */
+  stroke: #38bdf8 !important; /* 荧光青边框 */
+  stroke-width: 1.2px !important;
+  rx: 4px !important;
+  ry: 4px !important;
+  filter: drop-shadow(0 0 3px rgba(56, 189, 248, 0.15)) !important;
+}
+
+body.theme-paper .milkdown-mermaid-preview svg .noteText,
+body.theme-paper .milkdown-mermaid-preview svg .noteText * {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  fill: #38bdf8 !important; /* 荧光青文字 */
+  color: #38bdf8 !important;
+}
+
+/* 循环与可选框 (Loop & Alt) */
+body.theme-paper .milkdown-mermaid-preview svg .loopLine {
+  stroke: #7c4dff !important; /* 霓虹紫 */
+  stroke-width: 1.2px !important;
+  stroke-dasharray: 2 2 !important;
+}
+
+body.theme-paper .milkdown-mermaid-preview svg .loopText,
+body.theme-paper .milkdown-mermaid-preview svg .loopText * {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  fill: #e2e8f0 !important;
+  font-weight: 600 !important;
+}
+
+/* ── 类图与状态图 (Class & State Diagram) ── */
+body.theme-paper .milkdown-mermaid-preview svg .classGroup rect,
+body.theme-paper .milkdown-mermaid-preview svg .stateGroup rect {
+  fill: #1e2235 !important;
+  stroke: #7c4dff !important;
+  stroke-width: 1.5px !important;
+  rx: 4px !important;
+  ry: 4px !important;
+}
+
+body.theme-paper .milkdown-mermaid-preview svg .classGroup text,
+body.theme-paper .milkdown-mermaid-preview svg .stateGroup text {
+  font-family: 'Inter', 'PingFang SC', 'Segoe UI', system-ui, sans-serif !important;
+  fill: #e2e8f0 !important;
+}
+
 /* ── Code Syntax Highlighting (PrismJS) ── */
 #editor .ProseMirror pre .token.comment,
 #editor .ProseMirror pre .token.prolog,

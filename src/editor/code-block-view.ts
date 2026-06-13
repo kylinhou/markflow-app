@@ -165,6 +165,92 @@ const MermaidThemeRegistry: Record<string, MermaidThemeConfig> = {
       pieLegendTextColor: '#2c2c2c',
       pieStrokeColor: '#d8d3ce'
     })
+  },
+  'theme-paper': {
+    theme: 'base',
+    themeVariables: (font) => ({
+      fontFamily: font,
+      background: '#1a1d2b',
+
+      // ── 节点配色 ──
+      primaryColor: '#1e2235',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#7c4dff',
+
+      secondaryColor: '#112530',
+      secondaryTextColor: '#38bdf8',
+      secondaryBorderColor: '#38bdf8',
+
+      tertiaryColor: '#1e2235',
+      tertiaryTextColor: '#e2e8f0',
+      tertiaryBorderColor: '#7c4dff',
+
+      // 通用文字
+      textColor: '#e2e8f0',
+
+      // 节点 DOM 级别覆盖
+      mainBkg: '#1e2235',
+      nodeBorder: '#7c4dff',
+      nodeTextColor: '#e2e8f0',
+
+      // 子图/集群
+      clusterBkg: '#11131e',
+      clusterBorder: '#2d3245',
+      titleColor: '#e2e8f0',
+
+      // ── 连线与箭头 ──
+      lineColor: '#475569',
+      edgeLabelBackground: '#1a1d2b',
+
+      // ── 时序图 ──
+      actorBkg: '#1e2235',
+      actorBorder: '#7c4dff',
+      actorTextColor: '#e2e8f0',
+      actorLineColor: '#2d3245',
+      signalColor: '#94a3b8',
+      signalTextColor: '#e2e8f0',
+      labelBoxBkgColor: '#1e2235',
+      labelBoxBorderColor: '#2d3245',
+      labelTextColor: '#e2e8f0',
+      loopTextColor: '#e2e8f0',
+      loopLimitBorderColor: '#7c4dff',
+      loopLimitBkgColor: '#1e2235',
+      activationBkgColor: '#112530',
+      activationBorderColor: '#38bdf8',
+      sequenceNumberColor: '#1e2235',
+      noteBkgColor: '#112530',
+      noteBorderColor: '#38bdf8',
+      noteTextColor: '#38bdf8',
+
+      // ── 甘特图 ──
+      gridColor: '#2d3245',
+      todayLineColor: '#fb7185',
+      taskBkgColor: '#1e2235',
+      taskBorderColor: '#7c4dff',
+      taskTextColor: '#e2e8f0',
+      taskTextLightColor: '#e2e8f0',
+      activeTaskBkgColor: '#112530',
+      activeTaskBorderColor: '#38bdf8',
+      doneTaskBkgColor: '#1e2235',
+      doneTaskBorderColor: '#475569',
+      critBkgColor: '#fb7185',
+      critBorderColor: '#f43f5e',
+      sectionBkgColor: '#1a1d2b',
+      sectionBkgColor2: '#1e2235',
+      altSectionBkgColor: '#1e2235',
+
+      // ── 饼图 ──
+      pie1: '#7c4dff',
+      pie2: '#38bdf8',
+      pie3: '#fb7185',
+      pie4: '#f472b6',
+      pie5: '#c4b5fd',
+      pie6: '#fdba74',
+      pieTitleTextColor: '#e2e8f0',
+      pieSectionTextColor: '#e2e8f0',
+      pieLegendTextColor: '#94a3b8',
+      pieStrokeColor: '#2d3245'
+    })
   }
   // 其他主题如需深度定制，可在此追加，完全隔离
 }
