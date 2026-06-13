@@ -104,3 +104,4 @@ body.theme-paper .milkdown-mermaid-preview svg div {
 ```
 通过这类最高权重的显式覆盖，彻底规避任何环境依赖下的“暗色主题隐形字”Bug。
 
+（更新于：2026-06-13）
