@@ -67,6 +67,78 @@ function fixForeignObjectSizes(container: HTMLElement) {
   }
 }
 
+// ── Mermaid 多主题配置注册表 (Theme Registry) ──
+// 每个主题可在此注册其专属的 Mermaid 配色方案。
+// 未注册的主题会根据页面亮度自动 Fallback 到内置的 default/dark 主题。
+// 新增主题时只需在此字典中添加一项，无需修改渲染函数。
+
+interface MermaidThemeConfig {
+  theme: 'default' | 'dark' | 'forest' | 'base'
+  themeVariables: (bodyFont: string) => Record<string, any>
+}
+
+const MermaidThemeRegistry: Record<string, MermaidThemeConfig> = {
+  'theme-elegant': {
+    theme: 'base',
+    themeVariables: (font) => ({
+      fontFamily: font,
+      background: '#eae6e1',
+      primaryColor: '#eae6e1',
+      primaryTextColor: '#2c2c2c',
+      primaryBorderColor: '#c44b2b',
+      lineColor: '#777777',
+      secondaryColor: '#eae6e1',
+      tertiaryColor: '#f0edea',
+      edgeLabelBackground: '#eae6e1',
+      // 时序图
+      actorBkg: '#eae6e1',
+      actorBorder: '#c44b2b',
+      actorTextColor: '#2c2c2c',
+      actorLineColor: '#777777',
+      signalColor: '#2c2c2c',
+      signalTextColor: '#2c2c2c',
+      labelBoxBkgColor: '#eae6e1',
+      labelBoxBorderColor: '#d8d3ce',
+      labelTextColor: '#2c2c2c',
+      loopLimitBorderColor: '#c44b2b',
+      loopLimitBkgColor: '#eae6e1',
+      noteBkgColor: '#eae6e1',
+      noteBorderColor: '#c44b2b',
+      noteTextColor: '#2c2c2c',
+      // 甘特图
+      gridColor: '#d8d3ce',
+      taskColor: '#eae6e1',
+      taskBorderColor: '#c44b2b',
+      taskTextColor: '#2c2c2c',
+      sectionColor: '#f0edea',
+      sectionColor2: '#eae6e1'
+    })
+  }
+  // 其他主题如需深度定制，可在此追加，完全隔离
+}
+
+/**
+ * 根据当前激活的主题获取 Mermaid 渲染配置。
+ * 优先查找 MermaidThemeRegistry 中的精确匹配，
+ * 否则根据页面背景亮度自动选择内置的 default 或 dark 主题。
+ */
+function getMermaidConfig(isDark: boolean, bodyFont: string): { theme: string; themeVariables: Record<string, any> } {
+  const activeClass = Array.from(document.body.classList).find(cls => cls.startsWith('theme-'))
+
+  if (activeClass && MermaidThemeRegistry[activeClass]) {
+    const config = MermaidThemeRegistry[activeClass]
+    return {
+      theme: config.theme,
+      themeVariables: config.themeVariables(bodyFont)
+    }
+  }
+
+  return {
+    theme: isDark ? 'dark' : 'default',
+    themeVariables: { fontFamily: bodyFont }
+  }
+}
+
 export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor => {
   return (node, view, getPos) => {
     // 创建容器
@@ -159,28 +231,30 @@ export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor
         return
       }
 
-      // 根据页面实际背景亮度决定 Mermaid 主题，兼容所有主题（theme-dark、theme-paper 等）
+      // 根据页面实际背景亮度判断深色/浅色模式（纯亮度计算，不依赖具体主题类名）
       const detectDarkMode = (): boolean => {
-        // 优先通过计算背景色亮度判断（最可靠，兼容任何主题命名）
         const bgColor = getComputedStyle(document.body).backgroundColor
         const match = bgColor.match(/\d+/g)
         if (match && match.length >= 3) {
           const [r, g, b] = match.map(Number)
-          // 相对亮度公式 (ITU-R BT.709)
           const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
           return luminance < 0.5
         }
-        // 回退：检查常见类名
-        return document.body.classList.contains('dark') ||
-               document.body.classList.contains('theme-dark') ||
-               document.body.classList.contains('theme-paper') ||
-               document.body.getAttribute('data-theme') === 'dark'
+        return false
       }
       const isDark = detectDarkMode()
       
+      // 动态获取当前编辑器的实际字体，使图表内的文本与正文完美融为一体
+      const bodyFont = getComputedStyle(document.querySelector('.ProseMirror') || document.body).fontFamily || 'sans-serif'
+      
+      // 通过 Theme Registry 获取当前主题对应的 Mermaid 配置（完全隔离，互不影响）
+      const { theme, themeVariables } = getMermaidConfig(isDark, bodyFont)
+
+      // 每次渲染前重新配置 Mermaid 单例（有意为之：用户可能在两次渲染之间切换主题）
       mermaid.initialize({
         startOnLoad: false,
-        theme: isDark ? 'dark' : 'default',
+        theme: theme as any,
+        themeVariables,
         securityLevel: 'loose',
         flowchart: {
           htmlLabels: true,

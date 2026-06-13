@@ -588,6 +588,9 @@ body, body.theme-light {
   --blockquote-border: #d0d7de;
   --table-header-bg: #f6f8fa;
   --selection-bg: rgba(9, 105, 218, 0.15);
+  /* Mermaid preview variables */
+  --mermaid-preview-bg: #f6f8fa;
+  --mermaid-preview-border: #d0d7de;
   /* Prism syntax highlighting variables */
   --prism-comment: #6a737d;
   --prism-punctuation: #24292f;
@@ -610,6 +613,9 @@ body.theme-dark {
   --blockquote-border: #30363d;
   --table-header-bg: #161b22;
   --selection-bg: rgba(88, 166, 255, 0.2);
+  /* Mermaid preview variables */
+  --mermaid-preview-bg: #161b22;
+  --mermaid-preview-border: #30363d;
   /* Prism syntax highlighting variables */
   --prism-comment: #8b949e;
   --prism-punctuation: #c9d1d9;
@@ -635,6 +641,9 @@ body.theme-elegant {
   --table-header-bg: #eae6e1;
   --table-border: #d8d3ce;
   --selection-bg: rgba(196, 75, 43, 0.2);
+  /* Mermaid preview variables */
+  --mermaid-preview-bg: #eae6e1;
+  --mermaid-preview-border: #d8d3ce;
   /* Prism syntax highlighting variables */
   --prism-comment: #777777;
   --prism-punctuation: #2c2c2c;
@@ -700,6 +709,9 @@ body.theme-paper {
   --table-border:     #2D3245;
   --selection-bg:     rgba(124, 77, 255, 0.2);
   --outline-width:    220px;
+  /* Mermaid preview variables */
+  --mermaid-preview-bg: #1A1D2B;
+  --mermaid-preview-border: #2D3245;
   /* Prism syntax highlighting variables */
   --prism-comment: #94A3B8;
   --prism-punctuation: #E2E8F0;
@@ -1368,6 +1380,9 @@ body.theme-newsprint {
   --prism-keyword: #2c5f8a;
   --prism-function: #8b008b;
   --prism-variable: #d97706;
+  /* Mermaid preview variables */
+  --mermaid-preview-bg: #eae6de;
+  --mermaid-preview-border: #d4d0c8;
 }
 
 body.theme-newsprint #editor .ProseMirror {
@@ -1516,22 +1531,15 @@ body.theme-newsprint #editor .ProseMirror {
 }
 
 /* ── Mermaid Preview Background & Adaptations ── */
+/* 通过各主题定义的 --mermaid-preview-bg/border 变量实现完全隔离，
+   修改任何一个主题的配色不会影响其他主题。 */
 .milkdown-mermaid-preview {
   padding: 1.5rem;
   border-radius: 8px;
-  background: var(--code-block-bg, #f6f8fa);
-  border: 1px solid var(--border-color, #e1e4e8);
+  background: var(--mermaid-preview-bg, #f6f8fa);
+  border: 1px solid var(--mermaid-preview-border, #e1e4e8);
   overflow-x: auto;
   margin: 1.2em 0;
-}
-
-/* 适配暗色模式的主题背景 — 使用各主题已定义的 CSS 变量自动适配 */
-body.dark .milkdown-mermaid-preview,
-body[data-theme='dark'] .milkdown-mermaid-preview,
-body.theme-dark .milkdown-mermaid-preview,
-body.theme-paper .milkdown-mermaid-preview,
-.dark-theme .milkdown-mermaid-preview {
-  background: var(--surface-color, var(--code-block-bg, #161b22));
 }
 
 /* Mermaid SVG 图表容器约束：不干预 SVG 内部渲染。
