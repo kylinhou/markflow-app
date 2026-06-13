@@ -1557,6 +1557,158 @@ body.theme-newsprint #editor .ProseMirror {
   max-width: none;
 }
 
+/* ── Elegant Theme Mermaid Custom Styling ── */
+body.theme-elegant .milkdown-mermaid-preview {
+  background: #fdfcf7 !important; /* 宣纸白，对比度与质感更佳 */
+  border: 3px double #c44b2b !important; /* 经典朱砂红双线框（古籍四周双边风格） */
+  border-radius: 4px !important;
+  box-shadow: 0 4px 16px rgba(196, 75, 43, 0.05) !important;
+  padding: 2.2rem !important;
+}
+
+/* 节点容器（流程图） */
+body.theme-elegant .milkdown-mermaid-preview svg .node rect,
+body.theme-elegant .milkdown-mermaid-preview svg .node circle,
+body.theme-elegant .milkdown-mermaid-preview svg .node polygon,
+body.theme-elegant .milkdown-mermaid-preview svg .node path,
+body.theme-elegant .milkdown-mermaid-preview svg .node .label-container {
+  fill: #faf6f0 !important; /* 微微温润的米白色 */
+  stroke: #c44b2b !important; /* 经典朱砂红 */
+  stroke-width: 1.5px !important;
+  rx: 2px !important; /* 强制直角/极微圆角，重现木刻印刷质感 */
+  ry: 2px !important;
+  filter: drop-shadow(2px 2px 0px rgba(92, 82, 70, 0.1)) !important; /* 淡墨色扁平投影，极具手作感 */
+  transition: filter 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s ease !important;
+}
+
+/* 悬停动效：节点扁平投影加深 */
+body.theme-elegant .milkdown-mermaid-preview svg .node:hover rect,
+body.theme-elegant .milkdown-mermaid-preview svg .node:hover circle,
+body.theme-elegant .milkdown-mermaid-preview svg .node:hover polygon,
+body.theme-elegant .milkdown-mermaid-preview svg .node:hover path,
+body.theme-elegant .milkdown-mermaid-preview svg .node:hover .label-container {
+  filter: drop-shadow(3px 3px 0px rgba(196, 75, 43, 0.3)) !important; /* 印章红色投影 */
+}
+
+/* 节点文字 */
+body.theme-elegant .milkdown-mermaid-preview svg .node .label,
+body.theme-elegant .milkdown-mermaid-preview svg .node .label * {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  font-weight: 600 !important;
+  fill: #2c2c2c !important;
+  color: #2c2c2c !important;
+}
+
+/* 连线与箭头 */
+body.theme-elegant .milkdown-mermaid-preview svg .edgePath .path {
+  stroke: #5c5246 !important; /* 浓墨色连线 */
+  stroke-width: 1.8px !important;
+}
+
+/* 箭头颜色 */
+body.theme-elegant .milkdown-mermaid-preview svg .markerPath,
+body.theme-elegant .milkdown-mermaid-preview svg .arrowheadPath,
+body.theme-elegant .milkdown-mermaid-preview svg [class*="arrowhead"] {
+  fill: #5c5246 !important;
+  stroke: #5c5246 !important;
+  stroke-width: 1px !important;
+}
+
+/* 连线文字/标签背景 */
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel rect {
+  fill: #fdfcf7 !important; /* 与容器背景融合 */
+}
+
+/* 连线文字/标签 */
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel span,
+body.theme-elegant .milkdown-mermaid-preview svg .edgeLabel text {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  font-size: 11px !important;
+  color: #8a7e74 !important; /* 淡墨旁批风格 */
+  fill: #8a7e74 !important;
+  font-style: italic !important;
+}
+
+/* ── 时序图 (Sequence Diagram) ── */
+/* Actor 角色框 */
+body.theme-elegant .milkdown-mermaid-preview svg .actor {
+  fill: #faf6f0 !important;
+  stroke: #c44b2b !important; /* 朱砂红印章框 */
+  stroke-width: 1.5px !important;
+  filter: drop-shadow(2px 2px 0px rgba(92, 82, 70, 0.1)) !important;
+}
+
+body.theme-elegant .milkdown-mermaid-preview svg text.actor {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  font-weight: bold !important;
+  fill: #2c2c2c !important;
+}
+
+/* Actor 垂直生命线 */
+body.theme-elegant .milkdown-mermaid-preview svg line.actor-line {
+  stroke: #8a7e74 !important; /* 淡墨虚线 */
+  stroke-dasharray: 4 4 !important;
+  stroke-width: 1px !important;
+}
+
+/* 消息连线 */
+body.theme-elegant .milkdown-mermaid-preview svg .messageLine0,
+body.theme-elegant .milkdown-mermaid-preview svg .messageLine1 {
+  stroke: #5c5246 !important; /* 浓墨连线 */
+  stroke-width: 1.5px !important;
+}
+
+/* 消息文字 */
+body.theme-elegant .milkdown-mermaid-preview svg .messageText {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  fill: #2c2c2c !important;
+  color: #2c2c2c !important;
+  font-size: 12px !important;
+}
+
+/* 备注 (Note) 框 - 仿简牍、古籍黄签纸 */
+body.theme-elegant .milkdown-mermaid-preview svg .note {
+  fill: #f5ebd6 !important; /* 竹签/黄纸色 */
+  stroke: #b8977a !important; /* 褐石色边框 */
+  stroke-width: 1.2px !important;
+  filter: drop-shadow(1px 1px 0px rgba(92, 82, 70, 0.1)) !important;
+}
+
+body.theme-elegant .milkdown-mermaid-preview svg .noteText,
+body.theme-elegant .milkdown-mermaid-preview svg .noteText * {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  fill: #5c5246 !important; /* 墨褐色文字 */
+  color: #5c5246 !important;
+}
+
+/* 循环与可选框 (Loop & Alt) */
+body.theme-elegant .milkdown-mermaid-preview svg .loopLine {
+  stroke: #b8977a !important; /* 褐石色 */
+  stroke-width: 1.2px !important;
+  stroke-dasharray: 2 2 !important;
+}
+
+body.theme-elegant .milkdown-mermaid-preview svg .loopText,
+body.theme-elegant .milkdown-mermaid-preview svg .loopText * {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  fill: #2c2c2c !important;
+  font-weight: bold !important;
+}
+
+/* ── 类图与状态图 (Class & State Diagram) ── */
+body.theme-elegant .milkdown-mermaid-preview svg .classGroup rect,
+body.theme-elegant .milkdown-mermaid-preview svg .stateGroup rect {
+  fill: #faf6f0 !important;
+  stroke: #c44b2b !important;
+  stroke-width: 1.5px !important;
+}
+
+body.theme-elegant .milkdown-mermaid-preview svg .classGroup text,
+body.theme-elegant .milkdown-mermaid-preview svg .stateGroup text {
+  font-family: 'LXGW WenKai', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', Georgia, serif !important;
+  fill: #2c2c2c !important;
+}
+
 /* ── Code Syntax Highlighting (PrismJS) ── */
 #editor .ProseMirror pre .token.comment,
 #editor .ProseMirror pre .token.prolog,

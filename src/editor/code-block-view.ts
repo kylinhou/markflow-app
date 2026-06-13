@@ -82,36 +82,88 @@ const MermaidThemeRegistry: Record<string, MermaidThemeConfig> = {
     theme: 'base',
     themeVariables: (font) => ({
       fontFamily: font,
-      background: '#eae6e1',
-      primaryColor: '#eae6e1',
+      background: '#fdfcf7',
+
+      // ── 节点配色 ── 
+      // 节点填充略亮于预览底色，模拟宣纸上的墨框立体感
+      primaryColor: '#faf6f0',
       primaryTextColor: '#2c2c2c',
-      primaryBorderColor: '#c44b2b',
-      lineColor: '#777777',
-      secondaryColor: '#eae6e1',
-      tertiaryColor: '#f0edea',
-      edgeLabelBackground: '#eae6e1',
-      // 时序图
-      actorBkg: '#eae6e1',
+      primaryBorderColor: '#c44b2b',     // 标志性铁锈红边框
+
+      // 显式设定辅助色阶，阻止 Mermaid base 主题将浅色自动反转为黑色
+      secondaryColor: '#f5ebd6',
+      secondaryTextColor: '#2c2c2c',
+      secondaryBorderColor: '#b8977a',   // 温暖的褐石色
+
+      tertiaryColor: '#faf6f0',
+      tertiaryTextColor: '#2c2c2c',
+      tertiaryBorderColor: '#b8977a',
+
+      // 通用文字
+      textColor: '#2c2c2c',
+
+      // 节点 DOM 级别覆盖（Mermaid 内部 fallback 链）
+      mainBkg: '#faf6f0',
+      nodeBorder: '#c44b2b',
+      nodeTextColor: '#2c2c2c',
+
+      // 子图/集群
+      clusterBkg: '#faf6f0',
+      clusterBorder: '#d8d3ce',
+      titleColor: '#2c2c2c',
+
+      // ── 连线与箭头 ── 温润的墨棕色，如毛笔淡墨
+      lineColor: '#5c5246',
+      edgeLabelBackground: '#fdfcf7',
+
+      // ── 时序图 ──
+      actorBkg: '#faf6f0',
       actorBorder: '#c44b2b',
       actorTextColor: '#2c2c2c',
-      actorLineColor: '#777777',
-      signalColor: '#2c2c2c',
+      actorLineColor: '#8a7e74',
+      signalColor: '#5c5246',
       signalTextColor: '#2c2c2c',
-      labelBoxBkgColor: '#eae6e1',
+      labelBoxBkgColor: '#faf6f0',
       labelBoxBorderColor: '#d8d3ce',
       labelTextColor: '#2c2c2c',
-      loopLimitBorderColor: '#c44b2b',
-      loopLimitBkgColor: '#eae6e1',
-      noteBkgColor: '#eae6e1',
-      noteBorderColor: '#c44b2b',
-      noteTextColor: '#2c2c2c',
-      // 甘特图
+      loopTextColor: '#2c2c2c',
+      loopLimitBorderColor: '#b8977a',
+      loopLimitBkgColor: '#faf6f0',
+      activationBkgColor: '#f5ebd6',
+      activationBorderColor: '#c44b2b',
+      sequenceNumberColor: '#faf6f0',
+      noteBkgColor: '#f5ebd6',
+      noteBorderColor: '#b8977a',
+      noteTextColor: '#5c5246',
+
+      // ── 甘特图 ──
       gridColor: '#d8d3ce',
-      taskColor: '#eae6e1',
+      todayLineColor: '#c44b2b',
+      taskBkgColor: '#faf6f0',
       taskBorderColor: '#c44b2b',
       taskTextColor: '#2c2c2c',
-      sectionColor: '#f0edea',
-      sectionColor2: '#eae6e1'
+      taskTextLightColor: '#faf6f0',
+      activeTaskBkgColor: '#f5ebd6',
+      activeTaskBorderColor: '#c44b2b',
+      doneTaskBkgColor: '#faf6f0',
+      doneTaskBorderColor: '#b8977a',
+      critBkgColor: '#c44b2b',
+      critBorderColor: '#8b3420',
+      sectionBkgColor: '#fdfcf7',
+      sectionBkgColor2: '#faf6f0',
+      altSectionBkgColor: '#faf6f0',
+
+      // ── 饼图 ──
+      pie1: '#c44b2b',
+      pie2: '#b8977a',
+      pie3: '#8a7e74',
+      pie4: '#d4a574',
+      pie5: '#6b5c4d',
+      pie6: '#d8d3ce',
+      pieTitleTextColor: '#2c2c2c',
+      pieSectionTextColor: '#faf6f0',
+      pieLegendTextColor: '#2c2c2c',
+      pieStrokeColor: '#d8d3ce'
     })
   }
   // 其他主题如需深度定制，可在此追加，完全隔离
