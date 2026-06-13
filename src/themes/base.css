@@ -1600,18 +1600,26 @@ body.theme-elegant .milkdown-mermaid-preview svg .node .label * {
 }
 
 /* 连线与箭头 */
-body.theme-elegant .milkdown-mermaid-preview svg .edgePath .path {
+body.theme-elegant .milkdown-mermaid-preview svg .flowchart-link,
+body.theme-elegant .milkdown-mermaid-preview svg .edgePaths path {
   stroke: #5c5246 !important; /* 浓墨色连线 */
   stroke-width: 1.8px !important;
 }
 
-/* 箭头颜色 */
-body.theme-elegant .milkdown-mermaid-preview svg .markerPath,
-body.theme-elegant .milkdown-mermaid-preview svg .arrowheadPath,
-body.theme-elegant .milkdown-mermaid-preview svg [class*="arrowhead"] {
-  fill: #5c5246 !important;
+/* 统一所有 Marker 内的元素填充与描边颜色 */
+body.theme-elegant .milkdown-mermaid-preview svg marker path,
+body.theme-elegant .milkdown-mermaid-preview svg marker polygon,
+body.theme-elegant .milkdown-mermaid-preview svg marker circle,
+body.theme-elegant .milkdown-mermaid-preview svg .arrowMarkerPath {
   stroke: #5c5246 !important;
-  stroke-width: 1px !important;
+  fill: #5c5246 !important;
+}
+
+/* 排除或重置那些本应没有填充（仅有描边）的开叉箭头/交叉箭头 */
+body.theme-elegant .milkdown-mermaid-preview svg [id$="stickTopArrowHead"] path,
+body.theme-elegant .milkdown-mermaid-preview svg [id$="stickBottomArrowHead"] path,
+body.theme-elegant .milkdown-mermaid-preview svg [id$="crosshead"] path {
+  fill: none !important;
 }
 
 /* 连线文字/标签背景 */
@@ -1754,18 +1762,26 @@ body.theme-paper .milkdown-mermaid-preview svg .node .label * {
 }
 
 /* 连线与箭头 */
-body.theme-paper .milkdown-mermaid-preview svg .edgePath .path {
-  stroke: #475569 !important; /* 钢青冷灰连线 */
-  stroke-width: 1.5px !important;
+body.theme-paper .milkdown-mermaid-preview svg .flowchart-link,
+body.theme-paper .milkdown-mermaid-preview svg .edgePaths path {
+  stroke: #64748b !important; /* 钢青冷灰连线 */
+  stroke-width: 1.8px !important;
 }
 
-/* 箭头颜色 */
-body.theme-paper .milkdown-mermaid-preview svg .markerPath,
-body.theme-paper .milkdown-mermaid-preview svg .arrowheadPath,
-body.theme-paper .milkdown-mermaid-preview svg [class*="arrowhead"] {
-  fill: #7c4dff !important;
+/* 统一所有 Marker 内的元素填充与描边颜色 */
+body.theme-paper .milkdown-mermaid-preview svg marker path,
+body.theme-paper .milkdown-mermaid-preview svg marker polygon,
+body.theme-paper .milkdown-mermaid-preview svg marker circle,
+body.theme-paper .milkdown-mermaid-preview svg .arrowMarkerPath {
   stroke: #7c4dff !important;
-  stroke-width: 1px !important;
+  fill: #7c4dff !important;
+}
+
+/* 排除或重置那些本应没有填充（仅有描边）的开叉箭头/交叉箭头 */
+body.theme-paper .milkdown-mermaid-preview svg [id$="stickTopArrowHead"] path,
+body.theme-paper .milkdown-mermaid-preview svg [id$="stickBottomArrowHead"] path,
+body.theme-paper .milkdown-mermaid-preview svg [id$="crosshead"] path {
+  fill: none !important;
 }
 
 /* 连线文字/标签背景 */
