@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 pub mod commands;
 pub mod file;
@@ -99,10 +99,8 @@ fn handle_cli_file(app: &AppHandle, file_path: PathBuf) {
     }
 }
 
-/// Get file path from command line arguments
-fn get_cli_file_path() -> Option<PathBuf> {
-    let args: Vec<String> = std::env::args().collect();
-    for arg in args.iter().skip(1) {
+fn find_markdown_file(args: &[String]) -> Option<PathBuf> {
+    for arg in args {
         let path = PathBuf::from(arg);
         if let Some(ext) = path.extension() {
             let ext_lower = ext.to_string_lossy().to_lowercase();
@@ -116,12 +114,39 @@ fn get_cli_file_path() -> Option<PathBuf> {
     None
 }
 
+/// Get file path from command line arguments
+fn get_cli_file_path() -> Option<PathBuf> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        find_markdown_file(&args[1..])
+    } else {
+        None
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Get CLI file path before building app
     let cli_file_path = get_cli_file_path();
     
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let file_path = if argv.len() > 1 {
+                find_markdown_file(&argv[1..])
+            } else {
+                None
+            };
+            
+            if let Some(path) = file_path {
+                handle_cli_file(app, path);
+            }
+            
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())

@@ -1,6 +1,6 @@
 {
   "name": "markflow",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "The Agent Native Markdown Editor - Rust Edition",
   "type": "module",
   "scripts": {

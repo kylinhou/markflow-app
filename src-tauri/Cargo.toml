@@ -1,6 +1,6 @@
 [package]
 name = "markflow"
-version = "1.2.2"
+version = "1.2.3"
 description = "The Agent Native Markdown Editor - Rust Edition"
 authors = ["marswave.ai"]
 license = "MIT"
@@ -24,6 +24,7 @@ tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
 notify = "6.1"
 tokio = { version = "1.35", features = ["rt-multi-thread", "sync", "time"] }
 chrono = "0.4"
