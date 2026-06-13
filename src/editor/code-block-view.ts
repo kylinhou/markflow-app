@@ -72,7 +72,8 @@ export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor
     // 创建容器
     const dom = document.createElement('div')
     dom.classList.add('milkdown-code-block-container')
-    dom.setAttribute('contenteditable', 'false')
+    // 移除容器级别的 contenteditable="false"，确保 ProseMirror 的 contentDOM 能获得焦点和编辑
+    // 我们仅在按钮和预览区设置 contenteditable="false"
 
     // 代码编辑器 pre > code
     const pre = document.createElement('pre')
@@ -136,9 +137,13 @@ export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor
           if (typeof pos === 'number') {
             const { state, dispatch } = view
             // pos 是代码块节点的起始位置，pos + 1 是代码块内部内容的起始位置
-            const tr = state.tr.setSelection(TextSelection.create(state.doc, pos + 1))
-            dispatch(tr)
-            view.focus()
+            try {
+              const tr = state.tr.setSelection(TextSelection.create(state.doc, pos + 1))
+              dispatch(tr)
+              view.focus()
+            } catch (err) {
+              console.error('Failed to focus on code block:', err)
+            }
           }
         }, 50)
       }
@@ -233,6 +238,10 @@ export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor
         return true
       },
       ignoreMutation: (mutation) => {
+        // 忽略所有属性的突变（例如 style、class、contenteditable等改变），防止 ProseMirror 重建整个 NodeView
+        if (mutation.type === 'attributes') {
+          return true
+        }
         // 忽略在 previewDOM 和 toggleBtn 内部的一切 DOM 变化
         if (previewDOM.contains(mutation.target) || toggleBtn.contains(mutation.target)) {
           return true
@@ -240,8 +249,8 @@ export const codeBlockView = $view(codeBlockSchema.node, (): NodeViewConstructor
         return false
       },
       stopEvent: (event) => {
-        // 阻止 ProseMirror 捕获/重写发生在预览区和切换按钮上的任何事件（如 click），以防焦点闪烁或定位失效
-        if (toggleBtn.contains(event.target as Node) || previewDOM.contains(event.target as Node)) {
+        const isButtonOrPreview = toggleBtn.contains(event.target as Node) || previewDOM.contains(event.target as Node);
+        if (isButtonOrPreview) {
           return true
         }
         return false
