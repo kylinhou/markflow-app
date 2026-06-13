@@ -61,6 +61,10 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Clean cargo mirror config for CI
+        run: rm -rf src-tauri/.cargo
+        shell: bash
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
