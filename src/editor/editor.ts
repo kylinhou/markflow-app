@@ -8,7 +8,9 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { clipboard } from '@milkdown/kit/plugin/clipboard'
-import { replaceAll } from '@milkdown/kit/utils'
+import { replaceAll, $prose } from '@milkdown/kit/utils'
+import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state'
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import { htmlView } from './html-view'
 import { codeBlockView } from './code-block-view'
 
@@ -96,6 +98,7 @@ export async function createEditor(
     .use(history)
     .use(listener)
     .use(clipboard)
+    .use(commentPlugin)
     .use(htmlView)
     .use(codeBlockView)
     .use(prism)
@@ -160,4 +163,209 @@ export function setMarkdown(content: string): void {
   // Emit event so outline updates (replaceAll is programmatic, not typed by user,
   // so the listener.markdownUpdated callback in createEditor() never fires here)
   emit('markdown-updated', { markdown: content }).catch(() => {})
+}
+
+// ─── Comment Plugin & Helpers ───
+
+export const commentPluginKey = new PluginKey('comment-plugin')
+
+export const commentPlugin = $prose(() => {
+  return new Plugin({
+    key: commentPluginKey,
+    state: {
+      init() {
+        return {
+          decorations: DecorationSet.empty
+        }
+      },
+      apply(tr, value, _oldState, _newState) {
+        let decorations = value.decorations.map(tr.mapping, tr.doc)
+        
+        const action = tr.getMeta(commentPluginKey)
+        if (action) {
+          if (action.type === 'SET_DECORATIONS') {
+            decorations = DecorationSet.create(tr.doc, action.decorations)
+          } else if (action.type === 'ADD_COMMENT') {
+            const dec = Decoration.inline(action.from, action.to, {
+              class: 'comment-anchor',
+              'data-comment-id': action.commentId
+            })
+            decorations = decorations.add(tr.doc, [dec])
+          } else if (action.type === 'REMOVE_COMMENT') {
+            const decs = decorations.find(undefined, undefined, (spec) => spec['data-comment-id'] === action.commentId)
+            decorations = decorations.remove(decs)
+          } else if (action.type === 'HIGHLIGHT_COMMENT') {
+            const list = decorations.find()
+            const newList = list.map(d => {
+              const spec = d.spec
+              const isTarget = spec['data-comment-id'] === action.commentId
+              return Decoration.inline(d.from, d.to, {
+                class: 'comment-anchor' + (isTarget && action.highlight ? ' highlighted' : ''),
+                'data-comment-id': spec['data-comment-id']
+              })
+            })
+            decorations = DecorationSet.create(tr.doc, newList)
+          }
+        }
+        return { decorations }
+      }
+    },
+    props: {
+      decorations(state) {
+        return commentPluginKey.getState(state)?.decorations || DecorationSet.empty
+      },
+      handleDOMEvents: {
+        click(_view, event) {
+          const target = event.target as HTMLElement
+          const anchor = target.closest('.comment-anchor')
+          if (anchor) {
+            const commentId = anchor.getAttribute('data-comment-id')
+            if (commentId) {
+              const clickEvent = new CustomEvent('comment-anchor-clicked', { detail: { commentId } })
+              window.dispatchEvent(clickEvent)
+              return true
+            }
+          }
+          return false
+        }
+      }
+    },
+    view(_editorView) {
+      return {
+        update(view, prevState) {
+          const { state } = view
+          if (!prevState || !prevState.selection.eq(state.selection)) {
+            handleSelectionChange(view)
+          }
+        }
+      }
+    }
+  })
+})
+
+function handleSelectionChange(view: EditorView) {
+  const { state } = view
+  const { selection } = state
+  const bubbleMenu = document.getElementById('comment-bubble-menu')
+  if (!bubbleMenu) return
+
+  if (selection.empty) {
+    bubbleMenu.style.display = 'none'
+    return
+  }
+
+  const { $from, $to } = selection
+  if ($from.sameParent($to) === false) {
+    bubbleMenu.style.display = 'none'
+    return
+  }
+
+  if (selection.from === selection.to) {
+    bubbleMenu.style.display = 'none'
+    return
+  }
+
+  const domSel = window.getSelection()
+  if (!domSel || domSel.isCollapsed || domSel.rangeCount === 0) {
+    bubbleMenu.style.display = 'none'
+    return
+  }
+
+  const range = domSel.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+
+  bubbleMenu.style.display = 'flex'
+  const menuWidth = bubbleMenu.offsetWidth
+  const menuHeight = bubbleMenu.offsetHeight
+
+  let left = rect.left + rect.width / 2 - menuWidth / 2
+  let top = rect.top - menuHeight - 8
+
+  left = Math.max(8, Math.min(left, window.innerWidth - menuWidth - 8))
+  top = Math.max(8, top)
+
+  bubbleMenu.style.left = `${left}px`
+  bubbleMenu.style.top = `${top}px`
+
+  bubbleMenu.dataset.from = String(selection.from)
+  bubbleMenu.dataset.to = String(selection.to)
+  bubbleMenu.dataset.quote = state.doc.textBetween(selection.from, selection.to)
+}
+
+export function addCommentDecoration(commentId: string, from: number, to: number) {
+  if (!editorViewInstance) return
+  const tr = editorViewInstance.state.tr
+  tr.setMeta(commentPluginKey, {
+    type: 'ADD_COMMENT',
+    commentId,
+    from,
+    to
+  })
+  editorViewInstance.dispatch(tr)
+}
+
+export function removeCommentDecoration(commentId: string) {
+  if (!editorViewInstance) return
+  const tr = editorViewInstance.state.tr
+  tr.setMeta(commentPluginKey, {
+    type: 'REMOVE_COMMENT',
+    commentId
+  })
+  editorViewInstance.dispatch(tr)
+}
+
+export function highlightCommentDecoration(commentId: string, highlight: boolean) {
+  if (!editorViewInstance) return
+  const tr = editorViewInstance.state.tr
+  tr.setMeta(commentPluginKey, {
+    type: 'HIGHLIGHT_COMMENT',
+    commentId,
+    highlight
+  })
+  editorViewInstance.dispatch(tr)
+}
+
+export function getCommentRanges(): { commentId: string, from: number, to: number, quote: string }[] {
+  if (!editorViewInstance) return []
+  const state = editorViewInstance.state
+  const pluginState = commentPluginKey.getState(state)
+  if (!pluginState) return []
+  const decorations = pluginState.decorations as DecorationSet
+  const list = decorations.find()
+  return list.map(d => {
+    return {
+      commentId: d.spec['data-comment-id'],
+      from: d.from,
+      to: d.to,
+      quote: state.doc.textBetween(d.from, d.to)
+    }
+  })
+}
+
+export function setCommentDecorations(comments: { commentId: string, from: number, to: number, orphaned?: boolean }[]) {
+  if (!editorViewInstance) return
+  const tr = editorViewInstance.state.tr
+  const decorations = comments
+    .filter(c => !c.orphaned)
+    .map(c => {
+      return Decoration.inline(c.from, c.to, {
+        class: 'comment-anchor',
+        'data-comment-id': c.commentId
+      })
+    })
+  tr.setMeta(commentPluginKey, {
+    type: 'SET_DECORATIONS',
+    decorations
+  })
+  editorViewInstance.dispatch(tr)
+}
+
+export function scrollEditorToRange(from: number, to: number) {
+  if (!editorViewInstance) return
+  const view = editorViewInstance
+  const sel = TextSelection.create(view.state.doc, from, to)
+  const tr = view.state.tr.setSelection(sel)
+  tr.scrollIntoView()
+  view.dispatch(tr)
+  view.focus()
 }

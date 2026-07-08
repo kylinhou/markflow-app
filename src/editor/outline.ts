@@ -438,6 +438,12 @@ export function toggleSidebar(): void {
   const hidden = sidebar.classList.toggle('outline-hidden')
   layout.classList.toggle('outline-full', hidden)
   localStorage.setItem('markflow-outline-visible', hidden ? 'false' : 'true')
+
+  // Low resolution check: if opening outline, hide comment sidebar
+  if (!hidden && window.innerWidth < 1024) {
+    const commentSidebar = document.getElementById('comment-sidebar')
+    commentSidebar?.classList.add('comment-hidden')
+  }
 }
 
 /** Restore sidebar state and width from localStorage */
@@ -458,33 +464,18 @@ export function restoreOutlineState(): void {
     sidebar.style.setProperty('--outline-width', savedWidth + 'px')
   }
 
-  // Restore sidebar direction (right by default)
-  const savedDir = localStorage.getItem('markflow-sidebar-direction') as 'right' | 'left' | null
-  const dir = savedDir || 'right'
-  layout.classList.remove('sidebar-right', 'sidebar-left')
-  layout.classList.add(`sidebar-${dir}`)
-  sidebar.classList.remove('sidebar-right', 'sidebar-left')
-  sidebar.classList.add(`sidebar-${dir}`)
 }
 
 /** Set sidebar position: 'right' or 'left'. Persists to localStorage. */
-export function setSidebarDirection(dir: 'right' | 'left'): void {
-  const sidebar = document.getElementById('outline-sidebar')
-  const layout = document.getElementById('editor-layout')
-  if (!sidebar || !layout) return
-
-  layout.classList.remove('sidebar-right', 'sidebar-left')
-  layout.classList.add(`sidebar-${dir}`)
-  sidebar.classList.remove('sidebar-right', 'sidebar-left')
-  sidebar.classList.add(`sidebar-${dir}`)
-  localStorage.setItem('markflow-sidebar-direction', dir)
+export function setSidebarDirection(_dir: 'right' | 'left'): void {
+  // Outline sidebar is now fixed on the left. Keep as stub for compatibility.
 }
 
 // ─── Resize Handle ─────────────────────────────────────────────────────────
 
 /** Set up the draggable resize handle between editor and sidebar */
 function setupResizeHandle(): void {
-  const handle = document.getElementById('resize-handle')
+  const handle = document.getElementById('resize-handle-left')
   const sidebar = document.getElementById('outline-sidebar')
   if (!handle || !sidebar) return
 

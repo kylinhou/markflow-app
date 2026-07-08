@@ -1,16 +1,15 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
-import { createEditor, getMarkdown, getHTML, setMarkdown } from './editor/editor'
+import { createEditor, getMarkdown, getHTML, setMarkdown, getCommentRanges, addCommentDecoration, removeCommentDecoration, highlightCommentDecoration, setCommentDecorations, scrollEditorToRange, getEditorView, commentPluginKey } from './editor/editor'
 import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyContentWidth } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState, setSidebarDirection } from './editor/outline'
+import { readTextFile, writeTextFile, exists, remove } from '@tauri-apps/plugin-fs'
 import './themes/base.css'
 
 // Expose editor API to window for testing/automation
 ;(window as any).setMarkdown = setMarkdown
 ;(window as any).getMarkdown = getMarkdown
 ;(window as any).applyTheme = applyTheme
-
-
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -19,12 +18,48 @@ interface FileData {
   content: string
 }
 
+interface CommentMeta {
+  commentId: string
+  quote: string
+  content: string
+  author: 'user' | 'agent'
+  status: 'active' | 'resolved'
+  timestamp: number
+  from: number
+  to: number
+  context: string
+  offsetInContext: number
+  orphaned?: boolean
+}
+
 interface Tab {
   id: string          // unique tab identifier (file path or temp id)
   path: string | null // null = untitled
   name: string        // display name
   isDirty: boolean    // unsaved changes
   content: string     // current editor content for this tab
+  comments?: CommentMeta[]
+}
+
+// Levenshtein distance utility for fuzzy matching
+function getLevenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = []
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i]
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        )
+      }
+    }
+  }
+  return matrix[b.length][a.length]
 }
 
 // ─── State ─────────────────────────────────────────────────────────────────
@@ -278,6 +313,7 @@ function switchTab(id: string): void {
     const current = getActiveTab()
     if (current) {
       current.content = getMarkdown()
+      syncCommentsFromEditor(current)
     }
   }
 
@@ -293,6 +329,11 @@ function switchTab(id: string): void {
 
   // Update active file in backend state so Ctrl+S saves the right file
   invoke('update_active_file', { path: tab.path }).catch(() => {})
+
+  // Restore comments
+  restoreCommentsForTab(tab).then(() => {
+    renderComments()
+  })
 
   renderTabs()
   updateOutline()
@@ -313,6 +354,7 @@ function openTab(path: string | null, content: string, name: string): Tab {
     const currentTab = getActiveTab()
     if (currentTab) {
       currentTab.content = getMarkdown()
+      syncCommentsFromEditor(currentTab)
     }
   }
 
@@ -325,6 +367,11 @@ function openTab(path: string | null, content: string, name: string): Tab {
 
   // Update active file in backend state
   invoke('update_active_file', { path: tab.path }).catch(() => {})
+
+  // Load and restore comments
+  restoreCommentsForTab(tab).then(() => {
+    renderComments()
+  })
 
   renderTabs()
   updateOutline()
@@ -473,11 +520,14 @@ async function init(): Promise<void> {
     const tab = getActiveTab()
     if (!tab) return
     try {
+      syncCommentsFromEditor(tab)
+
       if (tab.path) {
         // backend uses WindowState.file_path, which we update in switchTab/openTab
         await invoke('save_file', { content: getMarkdown() })
         tab.isDirty = false
         document.title = tab.name + ' — MarkFlow'
+        await saveCompanionComments(tab.path, tab.comments || [])
         renderTabs()
         updateOutline()
       } else {
@@ -488,6 +538,7 @@ async function init(): Promise<void> {
           tab.name = tabName(result.path)
           tab.isDirty = false
           document.title = tab.name + ' — MarkFlow'
+          await saveCompanionComments(tab.path, tab.comments || [])
           renderTabs()
           updateOutline()
           // Update backend active file since the path changed
@@ -633,6 +684,34 @@ async function init(): Promise<void> {
     hideTabContextMenu()
   })
 
+  // ── Comment Sidebar & Resize Handle Setup ──
+  setupCommentResizeHandle()
+
+  document.getElementById('comment-close-btn')?.addEventListener('click', () => {
+    toggleCommentSidebar(false)
+  })
+
+  document.getElementById('comment-bubble-menu')?.addEventListener('click', () => {
+    const bubbleMenu = document.getElementById('comment-bubble-menu')
+    if (!bubbleMenu) return
+    const from = parseInt(bubbleMenu.dataset.from || '0', 10)
+    const to = parseInt(bubbleMenu.dataset.to || '0', 10)
+    const quote = bubbleMenu.dataset.quote || ''
+    
+    bubbleMenu.style.display = 'none'
+    addCommentDraft(from, to, quote)
+  })
+
+  window.addEventListener('comment-anchor-clicked', (e: Event) => {
+    const commentId = (e as CustomEvent).detail.commentId
+    const card = document.querySelector(`.comment-card[data-comment-id="${commentId}"]`)
+    if (card) {
+      document.querySelectorAll('.comment-card').forEach(c => c.classList.remove('highlighted'))
+      card.classList.add('highlighted')
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  })
+
   // Start with a blank tab
   openTab(null, '', 'Untitled')
 }
@@ -733,6 +812,438 @@ function showToast(message: string, duration = 3000): void {
     toast.classList.add('toast-leave')
     setTimeout(() => toast.remove(), 400)
   }, duration)
+}
+
+// ─── Comment Management & Sidebar rendering ───
+
+function toggleCommentSidebar(show?: boolean): void {
+  const sidebar = document.getElementById('comment-sidebar')
+  if (!sidebar) return
+
+  const isHidden = sidebar.classList.contains('comment-hidden')
+  const shouldShow = show !== undefined ? show : isHidden
+
+  if (shouldShow) {
+    sidebar.classList.remove('comment-hidden')
+    
+    // Low resolution check: if screen width < 1024px, hide outline sidebar
+    if (window.innerWidth < 1024) {
+      const outlineSidebar = document.getElementById('outline-sidebar')
+      const layout = document.getElementById('editor-layout')
+      if (outlineSidebar && !outlineSidebar.classList.contains('outline-hidden')) {
+        outlineSidebar.classList.add('outline-hidden')
+        layout?.classList.add('outline-full')
+      }
+    }
+  } else {
+    sidebar.classList.add('comment-hidden')
+  }
+}
+
+function renderComments(): void {
+  const container = document.getElementById('comment-list')
+  const emptyEl = document.getElementById('comment-empty')
+  if (!container) return
+
+  container.innerHTML = ''
+  
+  const tab = getActiveTab()
+  const comments = tab?.comments || []
+  const activeComments = comments.filter(c => c.status === 'active')
+
+  if (activeComments.length === 0) {
+    emptyEl?.classList.add('visible')
+    return
+  }
+  
+  emptyEl?.classList.remove('visible')
+
+  activeComments.forEach(comment => {
+    const card = document.createElement('div')
+    card.className = 'comment-card' + (comment.orphaned ? ' orphaned' : '')
+    card.dataset.commentId = comment.commentId
+
+    const quote = document.createElement('p')
+    quote.className = 'comment-quote'
+    quote.textContent = comment.orphaned ? `${comment.quote} (原文字已被删除)` : comment.quote
+    card.appendChild(quote)
+
+    const content = document.createElement('p')
+    content.className = 'comment-content'
+    content.textContent = comment.content
+    card.appendChild(content)
+
+    const meta = document.createElement('div')
+    meta.className = 'comment-meta'
+
+    const author = document.createElement('span')
+    author.className = 'comment-author ' + comment.author
+    author.textContent = comment.author === 'agent' ? 'AI Agent' : 'User'
+    meta.appendChild(author)
+
+    const resolveBtn = document.createElement('button')
+    resolveBtn.className = 'comment-resolve-btn'
+    resolveBtn.textContent = '解决'
+    resolveBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      resolveComment(comment.commentId)
+    })
+    meta.appendChild(resolveBtn)
+
+    card.appendChild(meta)
+
+    card.addEventListener('mouseenter', () => {
+      if (!comment.orphaned) {
+        highlightCommentDecoration(comment.commentId, true)
+      }
+    })
+    card.addEventListener('mouseleave', () => {
+      if (!comment.orphaned) {
+        highlightCommentDecoration(comment.commentId, false)
+      }
+    })
+
+    card.addEventListener('click', () => {
+      if (!comment.orphaned) {
+        scrollEditorToComment(comment.commentId)
+      }
+    })
+
+    container.appendChild(card)
+  })
+}
+
+function resolveComment(commentId: string): void {
+  const tab = getActiveTab()
+  if (!tab || !tab.comments) return
+
+  const comment = tab.comments.find(c => c.commentId === commentId)
+  if (comment) {
+    comment.status = 'resolved'
+    removeCommentDecoration(commentId)
+    renderComments()
+    markDirty()
+  }
+}
+
+function scrollEditorToComment(commentId: string): void {
+  const ranges = getCommentRanges()
+  const range = ranges.find(r => r.commentId === commentId)
+  if (range) {
+    scrollEditorToRange(range.from, range.to)
+  }
+}
+
+function addCommentDraft(from: number, to: number, quote: string): void {
+  const container = document.getElementById('comment-list')
+  const emptyEl = document.getElementById('comment-empty')
+  if (!container) return
+
+  emptyEl?.classList.remove('visible')
+  
+  toggleCommentSidebar(true)
+
+  const existingDraft = document.querySelector('.comment-draft-card')
+  if (existingDraft) existingDraft.remove()
+
+  const draftCard = document.createElement('div')
+  draftCard.className = 'comment-draft-card'
+
+  const quoteEl = document.createElement('p')
+  quoteEl.className = 'comment-quote'
+  quoteEl.textContent = quote
+  draftCard.appendChild(quoteEl)
+
+  const textarea = document.createElement('textarea')
+  textarea.className = 'comment-draft-textarea'
+  textarea.placeholder = '输入评论或修改建议...'
+  draftCard.appendChild(textarea)
+
+  const actions = document.createElement('div')
+  actions.className = 'comment-draft-actions'
+
+  const cancelBtn = document.createElement('button')
+  cancelBtn.className = 'comment-btn comment-btn-secondary'
+  cancelBtn.textContent = '取消'
+  cancelBtn.addEventListener('click', () => {
+    draftCard.remove()
+    renderComments()
+  })
+  actions.appendChild(cancelBtn)
+
+  const saveBtn = document.createElement('button')
+  saveBtn.className = 'comment-btn comment-btn-primary'
+  saveBtn.textContent = '提交'
+  saveBtn.addEventListener('click', () => {
+    const text = textarea.value.trim()
+    if (!text) return
+    
+    const commentId = `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    
+    const view = getEditorView()
+    if (view) {
+      const $from = view.state.doc.resolve(from)
+      const start = $from.start()
+      const end = $from.end()
+      const context = view.state.doc.textBetween(start, end)
+      const offsetInContext = from - start
+
+      const tab = getActiveTab()
+      if (tab) {
+        if (!tab.comments) tab.comments = []
+        
+        const newComment: CommentMeta = {
+          commentId,
+          quote,
+          content: text,
+          author: 'user',
+          status: 'active',
+          timestamp: Date.now(),
+          from,
+          to,
+          context,
+          offsetInContext
+        }
+        tab.comments.push(newComment)
+        
+        addCommentDecoration(commentId, from, to)
+        
+        draftCard.remove()
+        renderComments()
+        markDirty()
+      }
+    }
+  })
+  actions.appendChild(saveBtn)
+
+  draftCard.appendChild(actions)
+  container.appendChild(draftCard)
+  
+  textarea.focus()
+  draftCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+}
+
+function setupCommentResizeHandle(): void {
+  const handle = document.getElementById('resize-handle-right')
+  const sidebar = document.getElementById('comment-sidebar')
+  if (!handle || !sidebar) return
+
+  let dragging = false
+  let startX = 0
+  let startWidth = 0
+
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
+    if (sidebar.classList.contains('comment-hidden')) return
+    dragging = true
+    startX = e.clientX
+    startWidth = sidebar.offsetWidth
+    handle.classList.add('dragging')
+    document.body.style.cursor = 'ew-resize'
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove', (e: MouseEvent) => {
+    if (!dragging) return
+    const dx = e.clientX - startX
+    const newWidth = Math.min(480, Math.max(240, startWidth - dx))
+    sidebar.style.setProperty('--comment-width', newWidth + 'px')
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return
+    dragging = false
+    handle.classList.remove('dragging')
+    document.body.style.cursor = ''
+    const w = sidebar.offsetWidth
+    localStorage.setItem('markflow-comment-width', String(w))
+  })
+}
+
+async function loadCompanionComments(path: string): Promise<CommentMeta[]> {
+  try {
+    const companionPath = path + '.comments.json'
+    const fileExists = await exists(companionPath)
+    if (!fileExists) return []
+
+    const text = await readTextFile(companionPath)
+    const comments = JSON.parse(text) as CommentMeta[]
+    return comments
+  } catch (e) {
+    console.error('Failed to load companion comments:', e)
+    return []
+  }
+}
+
+async function saveCompanionComments(path: string, comments: CommentMeta[]): Promise<void> {
+  try {
+    const companionPath = path + '.comments.json'
+    if (comments.length === 0) {
+      const fileExists = await exists(companionPath)
+      if (fileExists) {
+        await remove(companionPath)
+      }
+      return
+    }
+
+    const text = JSON.stringify(comments, null, 2)
+    await writeTextFile(companionPath, text)
+  } catch (e) {
+    console.error('Failed to save companion comments:', e)
+  }
+}
+
+function syncCommentsFromEditor(tab: Tab): void {
+  if (!tab || !tab.comments) return
+  
+  const ranges = getCommentRanges()
+  
+  tab.comments.forEach(comment => {
+    const range = ranges.find(r => r.commentId === comment.commentId)
+    if (range) {
+      comment.from = range.from
+      comment.to = range.to
+      comment.quote = range.quote
+      comment.orphaned = false
+
+      const view = getEditorView()
+      if (view) {
+        const $from = view.state.doc.resolve(range.from)
+        const start = $from.start()
+        const end = $from.end()
+        comment.context = view.state.doc.textBetween(start, end)
+        comment.offsetInContext = range.from - start
+      }
+    } else if (!comment.orphaned && comment.status === 'active') {
+      comment.orphaned = true
+    }
+  })
+}
+
+async function restoreCommentsForTab(tab: Tab): Promise<void> {
+  if (!tab.comments) {
+    if (tab.path) {
+      tab.comments = await loadCompanionComments(tab.path)
+    } else {
+      tab.comments = []
+    }
+  }
+
+  const view = getEditorView()
+  if (!view) return
+
+  const doc = view.state.doc
+
+  tab.comments.forEach(comment => {
+    if (comment.status === 'resolved') return
+
+    if (comment.from < doc.content.size && comment.to <= doc.content.size) {
+      const currentText = doc.textBetween(comment.from, comment.to)
+      if (currentText === comment.quote) {
+        comment.orphaned = false
+        return
+      }
+    }
+
+    let bestMatch: { pos: number; text: string; distance: number } | null = null
+    let minDistance = Infinity
+    const threshold = Math.ceil(comment.context.length * 0.20)
+
+    doc.descendants((node: any, pos: number) => {
+      if (node.isTextblock) {
+        const text = node.textContent
+        if (!text) return
+        
+        const dist = getLevenshteinDistance(comment.context, text)
+        if (dist <= threshold && dist < minDistance) {
+          minDistance = dist
+          bestMatch = { pos, text, distance: dist }
+        }
+      }
+    })
+
+    if (bestMatch) {
+      const match = bestMatch as { pos: number; text: string; distance: number }
+      let index = match.text.indexOf(comment.quote)
+      if (index === -1) {
+        index = Math.max(0, Math.min(comment.offsetInContext, match.text.length - comment.quote.length))
+      }
+      
+      comment.from = match.pos + 1 + index
+      comment.to = comment.from + comment.quote.length
+      comment.orphaned = false
+      
+      comment.context = match.text
+      comment.offsetInContext = index
+    } else {
+      comment.orphaned = true
+    }
+  })
+
+  setCommentDecorations(tab.comments)
+}
+
+// ─── AI Agent APIs ───
+
+;(window as any).getActiveComments = () => {
+  const tab = getActiveTab()
+  if (!tab || !tab.comments) return []
+  
+  syncCommentsFromEditor(tab)
+
+  return tab.comments
+    .filter(c => c.status === 'active')
+    .map(c => ({
+      commentId: c.commentId,
+      quote: c.quote,
+      content: c.content,
+      author: c.author,
+      status: c.status,
+      timestamp: c.timestamp,
+      from: c.from,
+      to: c.to,
+      orphaned: c.orphaned,
+      context: c.context,
+      offsetInContext: c.offsetInContext
+    }))
+}
+
+;(window as any).applyCommentResolution = (commentId: string, replacementText: string) => {
+  const tab = getActiveTab()
+  if (!tab || !tab.comments) return false
+
+  syncCommentsFromEditor(tab)
+
+  const comment = tab.comments.find(c => c.commentId === commentId)
+  if (!comment || comment.status !== 'active') return false
+
+  const view = getEditorView()
+  if (!view) return false
+
+  if (comment.orphaned) {
+    comment.status = 'resolved'
+    renderComments()
+    markDirty()
+    return true
+  }
+
+  const tr = view.state.tr
+  tr.replaceWith(comment.from, comment.to, view.state.schema.text(replacementText))
+  
+  tr.setMeta(commentPluginKey, {
+    type: 'REMOVE_COMMENT',
+    commentId
+  })
+
+  comment.status = 'resolved'
+
+  view.dispatch(tr)
+  view.focus()
+
+  syncCommentsFromEditor(tab)
+  renderComments()
+  markDirty()
+
+  return true
 }
 
 init().catch((e) => console.error('MarkFlow init failed:', e))
