@@ -139,8 +139,28 @@ function showTabContextMenu(tabId: string, x: number, y: number): void {
   `
 
   contextMenuEl.style.display = 'block'
-  contextMenuEl.style.left = `${x}px`
-  contextMenuEl.style.top = `${y}px`
+
+  // 防溢出安全定位
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const menuWidth = contextMenuEl.offsetWidth
+  const menuHeight = contextMenuEl.offsetHeight
+
+  let left = x
+  let top = y
+
+  if (x + menuWidth > vw) {
+    left = vw - menuWidth - 8
+  }
+  if (y + menuHeight > vh) {
+    top = vh - menuHeight - 8
+  }
+
+  left = Math.max(0, left)
+  top = Math.max(0, top)
+
+  contextMenuEl.style.left = `${left}px`
+  contextMenuEl.style.top = `${top}px`
 }
 
 // 隐藏右键菜单
@@ -162,6 +182,14 @@ function cleanupTabBackend(tab: Tab): void {
 function closeLeftTabs(targetId: string): void {
   const targetIdx = tabs.findIndex(t => t.id === targetId)
   if (targetIdx <= 0) return
+
+  // 0. 首要执行当前 active 状态 Tab 的内容回写以防止数据丢失
+  if (activeTabId) {
+    const current = getActiveTab()
+    if (current) {
+      current.content = getMarkdown()
+    }
+  }
 
   // 1. 提取左侧待关闭的所有文档并通知后端清理
   const tabsToClose = tabs.slice(0, targetIdx)
@@ -190,6 +218,14 @@ function closeRightTabs(targetId: string): void {
   const targetIdx = tabs.findIndex(t => t.id === targetId)
   if (targetIdx === -1 || targetIdx >= tabs.length - 1) return
 
+  // 0. 首要执行当前 active 状态 Tab 的内容回写以防止数据丢失
+  if (activeTabId) {
+    const current = getActiveTab()
+    if (current) {
+      current.content = getMarkdown()
+    }
+  }
+
   // 1. 提取右侧待关闭的所有文档并通知后端清理
   const tabsToClose = tabs.slice(targetIdx + 1)
   tabsToClose.forEach(cleanupTabBackend)
@@ -216,6 +252,14 @@ function closeRightTabs(targetId: string): void {
 function closeOtherTabs(targetId: string): void {
   const targetIdx = tabs.findIndex(t => t.id === targetId)
   if (targetIdx === -1) return
+
+  // 0. 首要执行当前 active 状态 Tab 的内容回写以防止数据丢失
+  if (activeTabId) {
+    const current = getActiveTab()
+    if (current) {
+      current.content = getMarkdown()
+    }
+  }
 
   // 1. 清理除目标外所有标签的后端监听
   const tabsToClose = tabs.filter(t => t.id !== targetId)
