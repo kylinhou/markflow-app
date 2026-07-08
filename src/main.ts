@@ -32,6 +32,10 @@ interface Tab {
 let tabs: Tab[] = []
 let activeTabId: string | null = null
 
+// ─── 右键菜单状态 ─────────────────────────────────────────────────────────────
+let rightClickedTabId: string | null = null
+let contextMenuEl: HTMLDivElement | null = null
+
 // ─── Tab Management ─────────────────────────────────────────────────────────
 
 function getActiveTab(): Tab | undefined {
@@ -56,6 +60,19 @@ function renderTabs(): void {
     const name = document.createElement('span')
     name.className = 'tab-name'
     name.textContent = tab.name
+    
+    // 【新增】智能 Tooltip 展示：仅在文本溢出被截断时展示完整文件路径/文件名
+    name.addEventListener('mouseenter', (e) => {
+      const target = e.currentTarget as HTMLElement
+      // 检查当前文字的实际渲染宽度是否大于容器的可视宽度
+      const isOverflowing = target.scrollWidth > target.clientWidth
+      if (isOverflowing) {
+        // 展示完整的路径（如果存在）或完整的文档名称
+        target.title = tab.path || tab.name
+      } else {
+        target.removeAttribute('title')
+      }
+    })
     el.appendChild(name)
 
     const dirty = document.createElement('span')
@@ -73,8 +90,142 @@ function renderTabs(): void {
 
     el.addEventListener('click', () => switchTab(tab.id))
 
+    // 【新增】监听右键点击事件
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      showTabContextMenu(tab.id, e.clientX, e.clientY)
+    })
+
     list.appendChild(el)
   }
+}
+
+// 显示右键菜单
+function showTabContextMenu(tabId: string, x: number, y: number): void {
+  rightClickedTabId = tabId
+  
+  if (!contextMenuEl) {
+    contextMenuEl = document.createElement('div')
+    contextMenuEl.id = 'tab-context-menu'
+    contextMenuEl.className = 'tab-context-menu'
+    document.body.appendChild(contextMenuEl)
+    
+    // 利用事件委托监听菜单项点击
+    contextMenuEl.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (!target.classList.contains('tab-context-menu-item') || !rightClickedTabId) return
+      
+      const action = target.dataset.action
+      if (action === 'close-current') {
+        closeTab(rightClickedTabId)
+      } else if (action === 'close-left') {
+        closeLeftTabs(rightClickedTabId)
+      } else if (action === 'close-right') {
+        closeRightTabs(rightClickedTabId)
+      } else if (action === 'close-others') {
+        closeOtherTabs(rightClickedTabId)
+      }
+      hideTabContextMenu()
+    })
+  }
+
+  // 动态生成菜单项
+  contextMenuEl.innerHTML = `
+    <div class="tab-context-menu-item" data-action="close-current">关闭当前文档</div>
+    <div class="tab-context-menu-item" data-action="close-left">关闭左侧文档</div>
+    <div class="tab-context-menu-item" data-action="close-right">关闭右侧文档</div>
+    <div class="tab-context-menu-item" data-action="close-others">关闭其他文档</div>
+  `
+
+  contextMenuEl.style.display = 'block'
+  contextMenuEl.style.left = `${x}px`
+  contextMenuEl.style.top = `${y}px`
+}
+
+// 隐藏右键菜单
+function hideTabContextMenu(): void {
+  if (contextMenuEl) {
+    contextMenuEl.style.display = 'none'
+  }
+  rightClickedTabId = null
+}
+
+// 辅助函数：关闭单个标签时的底层清理（通知 Rust 后端停止文件监听）
+function cleanupTabBackend(tab: Tab): void {
+  if (tab.path) {
+    invoke('stop_watching_file', { path: tab.path }).catch(() => {})
+  }
+}
+
+// ─── 3.1 关闭左侧文档 ───
+function closeLeftTabs(targetId: string): void {
+  const targetIdx = tabs.findIndex(t => t.id === targetId)
+  if (targetIdx <= 0) return
+
+  // 1. 提取左侧待关闭的所有文档并通知后端清理
+  const tabsToClose = tabs.slice(0, targetIdx)
+  tabsToClose.forEach(cleanupTabBackend)
+
+  // 2. 判定当前激活 of Tab 索引位置
+  const activeTab = getActiveTab()
+  const activeIdx = activeTab ? tabs.indexOf(activeTab) : -1
+
+  // 3. 数组切片保留 target 及其右侧元素
+  tabs = tabs.slice(targetIdx)
+
+  // 4. 重定位激活状态
+  if (activeIdx >= 0 && activeIdx < targetIdx) {
+    // 激活页在被关闭的左侧区域，则强制将焦点切到当前选中的 targetId 文档上
+    switchTab(targetId)
+  } else {
+    // 激活页在右侧完好无损，仅需重绘页签组件
+    renderTabs()
+    updateOutline()
+  }
+}
+
+// ─── 3.2 关闭右侧文档 ───
+function closeRightTabs(targetId: string): void {
+  const targetIdx = tabs.findIndex(t => t.id === targetId)
+  if (targetIdx === -1 || targetIdx >= tabs.length - 1) return
+
+  // 1. 提取右侧待关闭的所有文档并通知后端清理
+  const tabsToClose = tabs.slice(targetIdx + 1)
+  tabsToClose.forEach(cleanupTabBackend)
+
+  // 2. 判定当前激活 of Tab 索引位置
+  const activeTab = getActiveTab()
+  const activeIdx = activeTab ? tabs.indexOf(activeTab) : -1
+
+  // 3. 数组切片仅保留 0 到 target 索引区间
+  tabs = tabs.slice(0, targetIdx + 1)
+
+  // 4. 重定位激活状态
+  if (activeIdx > targetIdx) {
+    // 激活页在被关闭的右侧区域，则强制将焦点切到 targetId 文档上
+    switchTab(targetId)
+  } else {
+    // 激活页在左侧完好无损，重绘组件
+    renderTabs()
+    updateOutline()
+  }
+}
+
+// ─── 3.3 关闭其他文档 ───
+function closeOtherTabs(targetId: string): void {
+  const targetIdx = tabs.findIndex(t => t.id === targetId)
+  if (targetIdx === -1) return
+
+  // 1. 清理除目标外所有标签的后端监听
+  const tabsToClose = tabs.filter(t => t.id !== targetId)
+  tabsToClose.forEach(cleanupTabBackend)
+
+  // 2. 状态只保留这唯一的目标文档
+  tabs = [tabs[targetIdx]]
+
+  // 3. 强制切换激活焦点到该文档上
+  switchTab(targetId)
 }
 
 function switchTab(id: string): void {
@@ -431,6 +582,11 @@ async function init(): Promise<void> {
     // In Tauri, we can use the path from the file object
     // For now, we'll need to handle this differently
     // This is a simplified version
+  })
+
+  // 【新增】全局点击关闭右键菜单
+  document.addEventListener('click', () => {
+    hideTabContextMenu()
   })
 
   // Start with a blank tab

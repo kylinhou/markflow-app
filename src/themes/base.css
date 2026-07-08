@@ -2320,3 +2320,29 @@ body.theme-paper .milkdown-mermaid-preview svg .titleText * {
   padding: 4px 8px;
 }
 
+/* 自定义 Tab 右键上下文菜单 */
+.tab-context-menu {
+  position: fixed;
+  z-index: 10000;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 140px;
+  display: none;
+  font-family: inherit;
+}
+
+.tab-context-menu-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-color);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.tab-context-menu-item:hover {
+  background-color: rgba(128, 128, 128, 0.15);
+}
+
