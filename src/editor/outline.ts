@@ -484,7 +484,7 @@ export function setSidebarDirection(dir: 'right' | 'left'): void {
 
 /** Set up the draggable resize handle between editor and sidebar */
 function setupResizeHandle(): void {
-  const handle = document.getElementById('resize-handle')
+  const handle = document.getElementById('outline-resize-handle') || document.getElementById('resize-handle')
   const sidebar = document.getElementById('outline-sidebar')
   if (!handle || !sidebar) return
 

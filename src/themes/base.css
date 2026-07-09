@@ -2346,3 +2346,351 @@ body.theme-paper .milkdown-mermaid-preview svg .titleText * {
   background-color: rgba(128, 128, 128, 0.15);
 }
 
+/* ─── CriticMarkup Inline Rendering ──────────────────────────────────────── */
+
+.critic-addition {
+  background-color: rgba(46, 160, 67, 0.12);
+  color: #1a7f37;
+  text-decoration: underline dashed #1a7f37;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin: 0 1px;
+}
+
+.critic-deletion {
+  background-color: rgba(248, 81, 73, 0.12);
+  color: #cf222e;
+  text-decoration: line-through #cf222e;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin: 0 1px;
+}
+
+.critic-substitution {
+  background-color: rgba(230, 140, 10, 0.12);
+  color: #c93b00;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin: 0 1px;
+}
+
+.critic-substitution::before {
+  content: "原: " attr(data-original) " ➔ ";
+  font-size: 0.85em;
+  font-family: inherit;
+  color: var(--text-muted, #57606a);
+  background: rgba(128, 128, 128, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-right: 4px;
+  text-decoration: line-through;
+}
+
+.critic-highlight {
+  background-color: rgba(234, 174, 0, 0.2);
+  border-bottom: 2px solid #eaae00;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin: 0 1px;
+}
+
+.critic-comment-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: rgba(9, 105, 218, 0.12);
+  border: 1px solid #0969da;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  margin: 0 3px;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.critic-comment-bubble:hover {
+  transform: scale(1.2) translateY(-1px);
+  background-color: #0969da;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(9, 105, 218, 0.3);
+}
+
+/* ─── CriticMarkup Floating Bubble Menu ──────────────────────────────────── */
+
+.comment-bubble-menu {
+  position: fixed;
+  z-index: 10001;
+  background-color: var(--bg-color, #ffffff);
+  border: 1px solid var(--border-color, #d0d7de);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  padding: 4px;
+  gap: 2px;
+  animation: bubble-fade-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bubble-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.comment-bubble-menu button {
+  background: none;
+  border: none;
+  color: var(--text-color, #24292f);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.1s;
+}
+
+.comment-bubble-menu button:hover {
+  background-color: rgba(128, 128, 128, 0.12);
+}
+
+/* ─── Editor Layout & Dual Sidebars ──────────────────────────────────────── */
+
+#editor-layout {
+  display: flex;
+  flex-direction: row;
+  height: calc(100vh - 37px); /* titlebar height */
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+/* Left Sidebar: Outline */
+#outline-sidebar {
+  width: 260px;
+  height: 100%;
+  flex-shrink: 0;
+  background-color: var(--sidebar-bg, #f6f8fa);
+  border-right: 1px solid var(--border-color, #d0d7de);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin-left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#outline-sidebar.outline-hidden {
+  margin-left: -260px;
+}
+
+/* Right Sidebar: Critic Panel */
+#comment-sidebar {
+  width: 320px;
+  height: 100%;
+  flex-shrink: 0;
+  background-color: var(--sidebar-bg, #f6f8fa);
+  border-left: 1px solid var(--border-color, #d0d7de);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin-right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#comment-sidebar.comment-hidden {
+  margin-right: -320px;
+}
+
+/* Center Content: Editor */
+#editor {
+  flex: 1;
+  height: 100%;
+  overflow-y: auto;
+  padding: 40px;
+  background-color: var(--bg-color, #ffffff);
+}
+
+/* Resize Handles */
+.resize-handle {
+  width: 4px;
+  height: 100%;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.15s;
+  z-index: 10;
+}
+
+.resize-handle:hover,
+.resize-handle.resizing {
+  background-color: var(--link-color, #0969da);
+  width: 4px;
+}
+
+/* ─── Comment Sidebar Elements ───────────────────────────────────────────── */
+
+.comment-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color, #d0d7de);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-color, #24292f);
+  background-color: var(--bg-color, #ffffff);
+}
+
+.comment-header .close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-muted, #57606a);
+  transition: color 0.1s;
+}
+
+.comment-header .close-btn:hover {
+  color: var(--text-color, #24292f);
+}
+
+#comment-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment-empty {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted, #57606a);
+  font-size: 13px;
+  text-align: center;
+}
+
+.comment-empty.visible {
+  display: flex;
+}
+
+/* Comment Cards */
+.comment-card {
+  background-color: var(--bg-color, #ffffff);
+  border: 1px solid var(--border-color, #d0d7de);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.comment-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: var(--link-color, #0969da);
+  transform: translateY(-1px);
+}
+
+.comment-card.highlighted {
+  border-color: var(--link-color, #0969da);
+  background-color: rgba(9, 105, 218, 0.03);
+  box-shadow: 0 4px 12px rgba(9, 105, 218, 0.08);
+}
+
+/* Card Types */
+.comment-card.addition { border-left: 4px solid #2ea043; }
+.comment-card.deletion { border-left: 4px solid #cf222e; }
+.comment-card.substitution { border-left: 4px solid #d46b08; }
+.comment-card.comment { border-left: 4px solid #0969da; }
+.comment-card.highlight { border-left: 4px solid #eaae00; }
+
+.comment-card-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.comment-card.addition .comment-card-tag { background-color: rgba(46, 160, 67, 0.12); color: #1a7f37; }
+.comment-card.deletion .comment-card-tag { background-color: rgba(248, 81, 73, 0.12); color: #cf222e; }
+.comment-card.substitution .comment-card-tag { background-color: rgba(230, 140, 10, 0.12); color: #c93b00; }
+.comment-card.comment .comment-card-tag { background-color: rgba(9, 105, 218, 0.12); color: #0969da; }
+.comment-card.highlight .comment-card-tag { background-color: rgba(234, 174, 0, 0.12); color: #b08500; }
+
+.comment-quote {
+  font-size: 12px;
+  color: var(--text-color, #24292f);
+  background-color: var(--sidebar-bg, #f6f8fa);
+  padding: 6px 8px;
+  border-radius: 4px;
+  border-left: 2px solid var(--border-color, #d0d7de);
+  font-style: italic;
+  margin: 0;
+}
+
+.comment-content {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-color, #24292f);
+  margin: 0;
+}
+
+.comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 8px;
+}
+
+/* Accept / Reject / Resolve Buttons */
+.comment-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.comment-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.1s;
+}
+
+.comment-btn.accept {
+  background-color: #2ea043;
+  color: #ffffff;
+}
+
+.comment-btn.accept:hover {
+  background-color: #2c9740;
+}
+
+.comment-btn.reject {
+  background-color: transparent;
+  border-color: var(--border-color, #d0d7de);
+  color: var(--text-color, #24292f);
+}
+
+.comment-btn.reject:hover {
+  background-color: rgba(128, 128, 128, 0.08);
+}
+
+

@@ -1,6 +1,7 @@
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx, remarkPluginsCtx } from '@milkdown/kit/core'
-import { DOMSerializer } from '@milkdown/kit/prose/model'
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx, remarkPluginsCtx, parserCtx } from '@milkdown/kit/core'
+import { DOMSerializer, Slice } from '@milkdown/kit/prose/model'
 import type { EditorView } from '@milkdown/kit/prose/view'
+import { criticMarkupPlugins, criticMarkupRemarkPlugin } from './criticmarkup-plugin'
 import { emit } from '@tauri-apps/api/event'
 import remarkBreaks from 'remark-breaks'
 import { commonmark } from '@milkdown/kit/preset/commonmark'
@@ -83,7 +84,10 @@ export async function createEditor(
     .config((ctx) => {
       ctx.set(rootCtx, root)
       ctx.set(defaultValueCtx, defaultContent)
-      ctx.set(remarkPluginsCtx, [{ plugin: remarkBreaks, options: {} }])
+      ctx.set(remarkPluginsCtx, [
+        { plugin: remarkBreaks, options: {} },
+        { plugin: criticMarkupRemarkPlugin, options: {} }
+      ])
       if (onChange) {
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           onChange(markdown)
@@ -100,6 +104,7 @@ export async function createEditor(
     .use(codeBlockView)
     .use(prism)
     .use(math)
+    .use(criticMarkupPlugins)
     .create()
 
   // Get editorViewInstance AFTER create() completes — editorViewCtx is only
@@ -160,4 +165,17 @@ export function setMarkdown(content: string): void {
   // Emit event so outline updates (replaceAll is programmatic, not typed by user,
   // so the listener.markdownUpdated callback in createEditor() never fires here)
   emit('markdown-updated', { markdown: content }).catch(() => {})
+}
+
+export function parseMarkdownToSlice(markdown: string): any {
+  if (!editorInstance) return null
+  let slice: any = null
+  editorInstance.action((ctx) => {
+    const parser = ctx.get(parserCtx)
+    const parsedDoc = parser(markdown)
+    if (parsedDoc) {
+      slice = Slice.maxOpen(parsedDoc.content)
+    }
+  })
+  return slice
 }

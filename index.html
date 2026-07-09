@@ -17,10 +17,10 @@
       <div id="agent-dot"></div>
     </div>
   </header>
-  <div id="editor-layout" class="sidebar-right">
-    <aside id="outline-sidebar" class="outline-hidden sidebar-right">
+  <div id="editor-layout" class="sidebar-left comment-sidebar-right">
+    <aside id="outline-sidebar" class="outline-hidden sidebar-left">
       <div class="outline-header">
-        <span>Contents</span>
+        <span>目录</span>
         <button id="content-width-toggle" class="width-label-btn">宽度调节</button>
       </div>
       <div id="content-width-slider-wrap">
@@ -33,9 +33,30 @@
       <div id="outline-tree"></div>
       <div class="outline-empty" id="outline-empty">No headings found</div>
     </aside>
-    <div id="resize-handle"></div>
+    <div id="outline-resize-handle" class="resize-handle"></div>
+    
     <div id="editor"></div>
+    
+    <div id="comment-resize-handle" class="resize-handle"></div>
+    <aside id="comment-sidebar" class="comment-hidden">
+      <div class="comment-header">
+        <span>批注与修改建议</span>
+        <button id="comment-close-btn" class="close-btn">&times;</button>
+      </div>
+      <div id="comment-list"></div>
+      <div class="comment-empty" id="comment-empty">暂无批注和修改建议</div>
+    </aside>
   </div>
+
+  <!-- CriticMarkup Floating Bubble Menu -->
+  <div id="comment-bubble-menu" class="comment-bubble-menu" style="display: none;">
+    <button id="bubble-comment-btn" title="添加批注">💬 批注</button>
+    <button id="bubble-substitution-btn" title="建议替换">✍️ 替换</button>
+    <button id="bubble-deletion-btn" title="建议删除">🔴 删除</button>
+    <button id="bubble-addition-btn" title="建议插入">🟢 插入</button>
+    <button id="bubble-highlight-btn" title="高亮文本">🟡 高亮</button>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
