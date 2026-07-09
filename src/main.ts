@@ -597,21 +597,24 @@ function renderCriticPanel(items: CriticItem[]): void {
 
 // ─── Suggestions/Comments Transactions ─────────────────────────────────────
 
-function resolveCriticComment(from: number, to: number): void {
+function resolveCriticComment(from: number, to: number, externalTr?: any): void {
   const view = getEditorView()
   if (!view) return
-  const tr = view.state.tr
+  const tr = externalTr || view.state.tr
   tr.delete(from, to)
-  view.dispatch(tr)
-  view.focus()
-  scanCriticMarkup()
-  markDirty()
+
+  if (!externalTr) {
+    view.dispatch(tr)
+    view.focus()
+    scanCriticMarkup()
+    markDirty()
+  }
 }
 
-function acceptCriticSuggestion(type: string, from: number, to: number): void {
+function acceptCriticSuggestion(type: string, from: number, to: number, externalTr?: any): void {
   const view = getEditorView()
   if (!view) return
-  const tr = view.state.tr
+  const tr = externalTr || view.state.tr
   const schema = view.state.schema
 
   if (type === 'addition') {
@@ -624,16 +627,18 @@ function acceptCriticSuggestion(type: string, from: number, to: number): void {
     tr.removeMark(from, to, schema.marks.critic_highlight)
   }
 
-  view.dispatch(tr)
-  view.focus()
-  scanCriticMarkup()
-  markDirty()
+  if (!externalTr) {
+    view.dispatch(tr)
+    view.focus()
+    scanCriticMarkup()
+    markDirty()
+  }
 }
 
-function rejectCriticSuggestion(type: string, from: number, to: number, original: string): void {
+function rejectCriticSuggestion(type: string, from: number, to: number, original: string, externalTr?: any): void {
   const view = getEditorView()
   if (!view) return
-  const tr = view.state.tr
+  const tr = externalTr || view.state.tr
   const schema = view.state.schema
 
   if (type === 'addition') {
@@ -651,10 +656,12 @@ function rejectCriticSuggestion(type: string, from: number, to: number, original
     tr.removeMark(from, to, schema.marks.critic_highlight)
   }
 
-  view.dispatch(tr)
-  view.focus()
-  scanCriticMarkup()
-  markDirty()
+  if (!externalTr) {
+    view.dispatch(tr)
+    view.focus()
+    scanCriticMarkup()
+    markDirty()
+  }
 }
 
 // ─── Comment Sidebar UI Controls ──────────────────────────────────────────
@@ -742,9 +749,14 @@ function addCriticSubstitutionDraft(from: number, to: number, original: string):
   const schema = view.state.schema
   const markType = schema.marks.critic_substitution
 
-  tr.replaceWith(from, to, schema.text(replacement))
-  const newTo = from + replacement.length
-  tr.addMark(from, newTo, markType.create({ original }))
+  const slice = parseMarkdownToSlice(replacement)
+  if (slice) {
+    tr.replace(from, to, slice)
+    const newTo = from + slice.size
+    tr.addMark(from, newTo, markType.create({ original }))
+  } else {
+    tr.delete(from, to)
+  }
   
   view.dispatch(tr)
   view.focus()
@@ -1296,8 +1308,14 @@ function showToast(message: string, duration = 3000): void {
   const markType = schema.marks.critic_substitution
   const original = view.state.doc.textBetween(from, to)
 
-  tr.replaceWith(from, to, schema.text(newText))
-  tr.addMark(from, from + newText.length, markType.create({ original }))
+  const slice = parseMarkdownToSlice(newText)
+  if (slice) {
+    tr.replace(from, to, slice)
+    tr.addMark(from, from + slice.size, markType.create({ original }))
+  } else {
+    tr.delete(from, to)
+  }
+
   view.dispatch(tr)
   view.focus()
   scanCriticMarkup()
@@ -1321,34 +1339,52 @@ function showToast(message: string, duration = 3000): void {
 }
 
 ;(window as any).acceptAllSuggestions = () => {
+  const view = getEditorView()
+  if (!view) return 0
+
   const items = scanCriticMarkup()
   if (items.length === 0) return 0
   
   items.sort((a, b) => b.from - a.from)
   
+  const tr = view.state.tr
   items.forEach(item => {
     if (item.type === 'comment') {
-      resolveCriticComment(item.from, item.to)
+      resolveCriticComment(item.from, item.to, tr)
     } else {
-      acceptCriticSuggestion(item.type, item.from, item.to)
+      acceptCriticSuggestion(item.type, item.from, item.to, tr)
     }
   })
+
+  view.dispatch(tr)
+  view.focus()
+  scanCriticMarkup()
+  markDirty()
   return items.length
 }
 
 ;(window as any).rejectAllSuggestions = () => {
+  const view = getEditorView()
+  if (!view) return 0
+
   const items = scanCriticMarkup()
   if (items.length === 0) return 0
   
   items.sort((a, b) => b.from - a.from)
   
+  const tr = view.state.tr
   items.forEach(item => {
     if (item.type === 'comment') {
-      resolveCriticComment(item.from, item.to)
+      resolveCriticComment(item.from, item.to, tr)
     } else {
-      rejectCriticSuggestion(item.type, item.from, item.to, item.original || '')
+      rejectCriticSuggestion(item.type, item.from, item.to, item.original || '', tr)
     }
   })
+
+  view.dispatch(tr)
+  view.focus()
+  scanCriticMarkup()
+  markDirty()
   return items.length
 }
 
