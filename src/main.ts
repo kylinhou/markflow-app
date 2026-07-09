@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
-import { createEditor, getMarkdown, getHTML, setMarkdown, getEditorView } from './editor/editor'
+import { createEditor, getMarkdown, getHTML, setMarkdown, getEditorView, parseMarkdownToSlice } from './editor/editor'
 import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyContentWidth } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState, setSidebarDirection } from './editor/outline'
 import { Selection } from '@milkdown/kit/prose/state'
@@ -641,7 +641,12 @@ function rejectCriticSuggestion(type: string, from: number, to: number, original
   } else if (type === 'deletion') {
     tr.removeMark(from, to, schema.marks.critic_deletion)
   } else if (type === 'substitution') {
-    tr.replaceWith(from, to, schema.text(original))
+    const slice = parseMarkdownToSlice(original)
+    if (slice) {
+      tr.replace(from, to, slice)
+    } else {
+      tr.delete(from, to)
+    }
   } else if (type === 'highlight') {
     tr.removeMark(from, to, schema.marks.critic_highlight)
   }
@@ -709,6 +714,9 @@ function setupCommentResizeHandle(): void {
 // ─── Draft Creation Helpers ─────────────────────────────────────────────────
 
 function addCriticCommentDraft(from: number, to: number): void {
+  const comment = prompt("请输入批注内容：")
+  if (!comment) return
+
   const view = getEditorView()
   if (!view) return
   const tr = view.state.tr
@@ -717,7 +725,7 @@ function addCriticCommentDraft(from: number, to: number): void {
   const nodeType = schema.nodes.critic_comment
 
   tr.addMark(from, to, markType.create())
-  tr.insert(to, nodeType.create({ value: '批注内容' }))
+  tr.insert(to, nodeType.create({ value: comment }))
   view.dispatch(tr)
   view.focus()
   scanCriticMarkup()
@@ -725,13 +733,19 @@ function addCriticCommentDraft(from: number, to: number): void {
 }
 
 function addCriticSubstitutionDraft(from: number, to: number, original: string): void {
+  const replacement = prompt("请输入建议替换的新文本：", original)
+  if (replacement === null || replacement === original) return
+
   const view = getEditorView()
   if (!view) return
   const tr = view.state.tr
   const schema = view.state.schema
   const markType = schema.marks.critic_substitution
 
-  tr.addMark(from, to, markType.create({ original }))
+  tr.replaceWith(from, to, schema.text(replacement))
+  const newTo = from + replacement.length
+  tr.addMark(from, newTo, markType.create({ original }))
+  
   view.dispatch(tr)
   view.focus()
   scanCriticMarkup()
@@ -760,8 +774,10 @@ function addCriticAdditionDraft(from: number, to: number): void {
   const markType = schema.marks.critic_addition
 
   if (from === to) {
-    tr.insertText('新文本', from)
-    tr.addMark(from, from + 3, markType.create())
+    const insertion = prompt("请输入建议插入的文本：")
+    if (!insertion) return
+    tr.insertText(insertion, from)
+    tr.addMark(from, from + insertion.length, markType.create())
   } else {
     tr.addMark(from, to, markType.create())
   }
@@ -817,11 +833,15 @@ async function init(): Promise<void> {
   // Initialize outline with current document
   initOutline()
 
-  // Update outline and CriticMarkup panel on every content change
+  // Update outline and CriticMarkup panel on every content change (with debounce)
+  let scanTimer: ReturnType<typeof setTimeout> | null = null
   listen('markdown-updated', () => {
     markDirty()
     updateOutline()
-    scanCriticMarkup()
+    if (scanTimer) clearTimeout(scanTimer)
+    scanTimer = setTimeout(() => {
+      scanCriticMarkup()
+    }, 300)
   })
 
   // New Tab button
@@ -1249,6 +1269,87 @@ function showToast(message: string, duration = 3000): void {
     return true
   }
   return false
+}
+
+;(window as any).addCriticComment = (from: number, to: number, comment: string) => {
+  const view = getEditorView()
+  if (!view) return false
+  const tr = view.state.tr
+  const schema = view.state.schema
+  const markType = schema.marks.critic_highlight
+  const nodeType = schema.nodes.critic_comment
+
+  tr.addMark(from, to, markType.create())
+  tr.insert(to, nodeType.create({ value: comment }))
+  view.dispatch(tr)
+  view.focus()
+  scanCriticMarkup()
+  markDirty()
+  return true
+}
+
+;(window as any).addCriticSuggestion = (from: number, to: number, newText: string) => {
+  const view = getEditorView()
+  if (!view) return false
+  const tr = view.state.tr
+  const schema = view.state.schema
+  const markType = schema.marks.critic_substitution
+  const original = view.state.doc.textBetween(from, to)
+
+  tr.replaceWith(from, to, schema.text(newText))
+  tr.addMark(from, from + newText.length, markType.create({ original }))
+  view.dispatch(tr)
+  view.focus()
+  scanCriticMarkup()
+  markDirty()
+  return true
+}
+
+;(window as any).addCriticDeletion = (from: number, to: number) => {
+  const view = getEditorView()
+  if (!view) return false
+  const tr = view.state.tr
+  const schema = view.state.schema
+  const markType = schema.marks.critic_deletion
+
+  tr.addMark(from, to, markType.create())
+  view.dispatch(tr)
+  view.focus()
+  scanCriticMarkup()
+  markDirty()
+  return true
+}
+
+;(window as any).acceptAllSuggestions = () => {
+  const items = scanCriticMarkup()
+  if (items.length === 0) return 0
+  
+  items.sort((a, b) => b.from - a.from)
+  
+  items.forEach(item => {
+    if (item.type === 'comment') {
+      resolveCriticComment(item.from, item.to)
+    } else {
+      acceptCriticSuggestion(item.type, item.from, item.to)
+    }
+  })
+  return items.length
+}
+
+;(window as any).rejectAllSuggestions = () => {
+  const items = scanCriticMarkup()
+  if (items.length === 0) return 0
+  
+  items.sort((a, b) => b.from - a.from)
+  
+  items.forEach(item => {
+    if (item.type === 'comment') {
+      resolveCriticComment(item.from, item.to)
+    } else {
+      rejectCriticSuggestion(item.type, item.from, item.to, item.original || '')
+    }
+  })
+  return items.length
 }
 
 // ─── Start ──────────────────────────────────────────────────────────────────

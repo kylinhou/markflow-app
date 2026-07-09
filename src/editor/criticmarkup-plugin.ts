@@ -5,7 +5,44 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 
 // ─── Remark AST Parser Plugin ──────────────────────────────────────────────
 
-export const criticMarkupRemarkPlugin = () => {
+export const criticMarkupRemarkPlugin = function(this: any) {
+  let extensions = this.data('toMarkdownExtensions') as any[] | undefined
+  if (!extensions) {
+    extensions = []
+    this.data('toMarkdownExtensions', extensions)
+  }
+  extensions.push({
+    handlers: {
+      'critic-addition'(node: any, _: any, state: any) {
+        const content = state.containerPhrasing
+          ? state.containerPhrasing(node, { before: '{++', after: '++}' })
+          : (state.all ? state.all(node).join('') : '')
+        return `{++${content}++}`
+      },
+      'critic-deletion'(node: any, _: any, state: any) {
+        const content = state.containerPhrasing
+          ? state.containerPhrasing(node, { before: '{--', after: '--}' })
+          : (state.all ? state.all(node).join('') : '')
+        return `{--${content}--}`
+      },
+      'critic-substitution'(node: any, _: any, state: any) {
+        const content = state.containerPhrasing
+          ? state.containerPhrasing(node, { before: '~>', after: '~~' })
+          : (state.all ? state.all(node).join('') : '')
+        return `{~~${node.original}~>${content}~~}`
+      },
+      'critic-highlight'(node: any, _: any, state: any) {
+        const content = state.containerPhrasing
+          ? state.containerPhrasing(node, { before: '{==', after: '==}' })
+          : (state.all ? state.all(node).join('') : '')
+        return `{==${content}==}`
+      },
+      'critic-comment'(node: any) {
+        return `{>>${node.value}<<}`
+      }
+    }
+  })
+  
   return (tree: any) => {
     walk(tree)
   }
