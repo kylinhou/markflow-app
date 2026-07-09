@@ -370,14 +370,15 @@ export function scrollEditorToRange(from: number, to: number) {
   view.focus()
 }
 
-export function replaceRangeWithMarkdown(from: number, to: number, markdown: string, tr: any): void {
-  if (!editorInstance) return
+export function parseMarkdownToSlice(markdown: string): any {
+  if (!editorInstance) return null
+  let slice: any = null
   editorInstance.action((ctx) => {
     const parser = ctx.get(parserCtx)
     const parsedDoc = parser(markdown)
     if (parsedDoc) {
-      const slice = Slice.maxOpen(parsedDoc.content)
-      tr.replace(from, to, slice)
+      slice = Slice.maxOpen(parsedDoc.content)
     }
   })
+  return slice
 }

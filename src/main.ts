@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
-import { createEditor, getMarkdown, getHTML, setMarkdown, getCommentRanges, addCommentDecoration, removeCommentDecoration, highlightCommentDecoration, setCommentDecorations, scrollEditorToRange, getEditorView, commentPluginKey, replaceRangeWithMarkdown } from './editor/editor'
+import { createEditor, getMarkdown, getHTML, setMarkdown, getCommentRanges, addCommentDecoration, removeCommentDecoration, highlightCommentDecoration, setCommentDecorations, scrollEditorToRange, getEditorView, commentPluginKey, parseMarkdownToSlice } from './editor/editor'
 import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyContentWidth } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState, setSidebarDirection } from './editor/outline'
 import { readTextFile, writeTextFile, exists, remove } from '@tauri-apps/plugin-fs'
@@ -42,25 +42,41 @@ interface Tab {
   isLoadingComments?: boolean
 }
 
-// Levenshtein distance utility for fuzzy matching
+// Levenshtein distance utility for fuzzy matching (space-optimized)
 function getLevenshteinDistance(a: string, b: string): number {
-  const matrix: number[][] = []
-  for (let i = 0; i <= b.length; i++) matrix[i] = [i]
-  for (let j = 0; j <= a.length; j++) matrix[0][j] = j
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1]
+  if (a === b) return 0
+  if (a.length === 0) return b.length
+  if (b.length === 0) return a.length
+
+  const len1 = a.length
+  const len2 = b.length
+
+  let prevRow = new Int32Array(len2 + 1)
+  let currRow = new Int32Array(len2 + 1)
+
+  for (let j = 0; j <= len2; j++) {
+    prevRow[j] = j
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    currRow[0] = i
+    for (let j = 1; j <= len2; j++) {
+      if (a.charAt(i - 1) === b.charAt(j - 1)) {
+        currRow[j] = prevRow[j - 1]
       } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
+        currRow[j] = Math.min(
+          prevRow[j - 1] + 1, // substitution
+          currRow[j - 1] + 1, // insertion
+          prevRow[j] + 1      // deletion
         )
       }
     }
+    const temp = prevRow
+    prevRow = currRow
+    currRow = temp
   }
-  return matrix[b.length][a.length]
+
+  return prevRow[len2]
 }
 
 // ─── State ─────────────────────────────────────────────────────────────────
@@ -409,6 +425,9 @@ function closeTab(id: string): void {
     setMarkdown(nextTab.content)
     document.title = nextTab.name + ' — MarkFlow'
     invoke('update_active_file', { path: nextTab.path }).catch(() => {})
+    restoreCommentsForTab(nextTab).then(() => {
+      renderComments()
+    })
   }
 
   renderTabs()
@@ -522,6 +541,9 @@ async function init(): Promise<void> {
     if (!tab) return
     try {
       syncCommentsFromEditor(tab)
+      if (tab.comments) {
+        tab.comments = tab.comments.filter(c => c.status !== 'resolved')
+      }
 
       if (tab.path) {
         // backend uses WindowState.file_path, which we update in switchTab/openTab
@@ -710,6 +732,28 @@ async function init(): Promise<void> {
       document.querySelectorAll('.comment-card').forEach(c => c.classList.remove('highlighted'))
       card.classList.add('highlighted')
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  })
+
+  // Hide bubble menu on scroll of the editor
+  const editorEl = document.getElementById('editor')
+  if (editorEl) {
+    editorEl.addEventListener('scroll', () => {
+      const bubbleMenu = document.getElementById('comment-bubble-menu')
+      if (bubbleMenu && bubbleMenu.style.display !== 'none') {
+        bubbleMenu.style.display = 'none'
+      }
+    })
+  }
+
+  // Hide bubble menu on click outside editor / bubble menu
+  document.addEventListener('mousedown', (e) => {
+    const bubbleMenu = document.getElementById('comment-bubble-menu')
+    if (bubbleMenu && bubbleMenu.style.display !== 'none') {
+      const target = e.target as HTMLElement
+      if (!bubbleMenu.contains(target) && !document.getElementById('editor')?.contains(target)) {
+        bubbleMenu.style.display = 'none'
+      }
     }
   })
 
@@ -1078,7 +1122,9 @@ async function loadCompanionComments(path: string): Promise<CommentMeta[]> {
 async function saveCompanionComments(path: string, comments: CommentMeta[]): Promise<void> {
   try {
     const companionPath = path + '.comments.json'
-    if (comments.length === 0) {
+    const activeComments = comments.filter(c => c.status !== 'resolved')
+
+    if (activeComments.length === 0) {
       const fileExists = await exists(companionPath)
       if (fileExists) {
         await remove(companionPath)
@@ -1086,7 +1132,7 @@ async function saveCompanionComments(path: string, comments: CommentMeta[]): Pro
       return
     }
 
-    const text = JSON.stringify(comments, null, 2)
+    const text = JSON.stringify(activeComments, null, 2)
     await writeTextFile(companionPath, text)
   } catch (e) {
     console.error('Failed to save companion comments:', e)
@@ -1150,16 +1196,32 @@ async function restoreCommentsForTab(tab: Tab): Promise<void> {
       let bestMatch: { pos: number; text: string; distance: number } | null = null
       let minDistance = Infinity
       const threshold = Math.ceil(comment.context.length * 0.20)
+      let stopSearching = false
 
       doc.descendants((node: any, pos: number) => {
+        if (stopSearching) return false
         if (node.isTextblock) {
           const text = node.textContent
           if (!text) return
-          
+
+          if (comment.context === text) {
+            minDistance = 0
+            bestMatch = { pos, text, distance: 0 }
+            stopSearching = true
+            return false
+          }
+
+          const lenDiff = Math.abs(comment.context.length - text.length)
+          if (lenDiff > threshold || lenDiff >= minDistance) return
+
           const dist = getLevenshteinDistance(comment.context, text)
           if (dist <= threshold && dist < minDistance) {
             minDistance = dist
             bestMatch = { pos, text, distance: dist }
+            if (dist === 0) {
+              stopSearching = true
+              return false
+            }
           }
         }
       })
@@ -1233,7 +1295,10 @@ async function restoreCommentsForTab(tab: Tab): Promise<void> {
   }
 
   const tr = view.state.tr
-  replaceRangeWithMarkdown(comment.from, comment.to, replacementText, tr)
+  const slice = parseMarkdownToSlice(replacementText)
+  if (slice) {
+    tr.replace(comment.from, comment.to, slice)
+  }
   
   tr.setMeta(commentPluginKey, {
     type: 'REMOVE_COMMENT',
