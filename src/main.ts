@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { emit, listen } from '@tauri-apps/api/event'
-import { createEditor, getMarkdown, getHTML, setMarkdown, getCommentRanges, addCommentDecoration, removeCommentDecoration, highlightCommentDecoration, setCommentDecorations, scrollEditorToRange, getEditorView, commentPluginKey } from './editor/editor'
+import { createEditor, getMarkdown, getHTML, setMarkdown, getCommentRanges, addCommentDecoration, removeCommentDecoration, highlightCommentDecoration, setCommentDecorations, scrollEditorToRange, getEditorView, commentPluginKey, replaceRangeWithMarkdown } from './editor/editor'
 import { applyTheme, loadSavedTheme, setContentWidth, loadContentWidth, applyContentWidth } from './themes/theme-manager'
 import { initOutline, updateOutline, toggleSidebar, restoreOutlineState, setSidebarDirection } from './editor/outline'
 import { readTextFile, writeTextFile, exists, remove } from '@tauri-apps/plugin-fs'
@@ -39,6 +39,7 @@ interface Tab {
   isDirty: boolean    // unsaved changes
   content: string     // current editor content for this tab
   comments?: CommentMeta[]
+  isLoadingComments?: boolean
 }
 
 // Levenshtein distance utility for fuzzy matching
@@ -1093,7 +1094,7 @@ async function saveCompanionComments(path: string, comments: CommentMeta[]): Pro
 }
 
 function syncCommentsFromEditor(tab: Tab): void {
-  if (!tab || !tab.comments) return
+  if (!tab || !tab.comments || tab.isLoadingComments) return
   
   const ranges = getCommentRanges()
   
@@ -1120,66 +1121,71 @@ function syncCommentsFromEditor(tab: Tab): void {
 }
 
 async function restoreCommentsForTab(tab: Tab): Promise<void> {
-  if (!tab.comments) {
-    if (tab.path) {
-      tab.comments = await loadCompanionComments(tab.path)
-    } else {
-      tab.comments = []
-    }
-  }
-
-  const view = getEditorView()
-  if (!view) return
-
-  const doc = view.state.doc
-
-  tab.comments.forEach(comment => {
-    if (comment.status === 'resolved') return
-
-    if (comment.from < doc.content.size && comment.to <= doc.content.size) {
-      const currentText = doc.textBetween(comment.from, comment.to)
-      if (currentText === comment.quote) {
-        comment.orphaned = false
-        return
+  tab.isLoadingComments = true
+  try {
+    if (!tab.comments) {
+      if (tab.path) {
+        tab.comments = await loadCompanionComments(tab.path)
+      } else {
+        tab.comments = []
       }
     }
 
-    let bestMatch: { pos: number; text: string; distance: number } | null = null
-    let minDistance = Infinity
-    const threshold = Math.ceil(comment.context.length * 0.20)
+    const view = getEditorView()
+    if (!view) return
 
-    doc.descendants((node: any, pos: number) => {
-      if (node.isTextblock) {
-        const text = node.textContent
-        if (!text) return
-        
-        const dist = getLevenshteinDistance(comment.context, text)
-        if (dist <= threshold && dist < minDistance) {
-          minDistance = dist
-          bestMatch = { pos, text, distance: dist }
+    const doc = view.state.doc
+
+    tab.comments.forEach(comment => {
+      if (comment.status === 'resolved') return
+
+      if (comment.from < doc.content.size && comment.to <= doc.content.size) {
+        const currentText = doc.textBetween(comment.from, comment.to)
+        if (currentText === comment.quote) {
+          comment.orphaned = false
+          return
         }
+      }
+
+      let bestMatch: { pos: number; text: string; distance: number } | null = null
+      let minDistance = Infinity
+      const threshold = Math.ceil(comment.context.length * 0.20)
+
+      doc.descendants((node: any, pos: number) => {
+        if (node.isTextblock) {
+          const text = node.textContent
+          if (!text) return
+          
+          const dist = getLevenshteinDistance(comment.context, text)
+          if (dist <= threshold && dist < minDistance) {
+            minDistance = dist
+            bestMatch = { pos, text, distance: dist }
+          }
+        }
+      })
+
+      if (bestMatch) {
+        const match = bestMatch as { pos: number; text: string; distance: number }
+        let index = match.text.indexOf(comment.quote)
+        if (index === -1) {
+          index = Math.max(0, Math.min(comment.offsetInContext, match.text.length - comment.quote.length))
+        }
+        
+        comment.from = match.pos + 1 + index
+        comment.to = comment.from + comment.quote.length
+        comment.orphaned = false
+        
+        comment.context = match.text
+        comment.offsetInContext = index
+      } else {
+        comment.orphaned = true
       }
     })
 
-    if (bestMatch) {
-      const match = bestMatch as { pos: number; text: string; distance: number }
-      let index = match.text.indexOf(comment.quote)
-      if (index === -1) {
-        index = Math.max(0, Math.min(comment.offsetInContext, match.text.length - comment.quote.length))
-      }
-      
-      comment.from = match.pos + 1 + index
-      comment.to = comment.from + comment.quote.length
-      comment.orphaned = false
-      
-      comment.context = match.text
-      comment.offsetInContext = index
-    } else {
-      comment.orphaned = true
-    }
-  })
-
-  setCommentDecorations(tab.comments)
+    setCommentDecorations(tab.comments)
+  } finally {
+    tab.isLoadingComments = false
+  }
 }
 
 // ─── AI Agent APIs ───
@@ -1227,7 +1233,7 @@ async function restoreCommentsForTab(tab: Tab): Promise<void> {
   }
 
   const tr = view.state.tr
-  tr.replaceWith(comment.from, comment.to, view.state.schema.text(replacementText))
+  replaceRangeWithMarkdown(comment.from, comment.to, replacementText, tr)
   
   tr.setMeta(commentPluginKey, {
     type: 'REMOVE_COMMENT',

@@ -1,5 +1,5 @@
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx, remarkPluginsCtx } from '@milkdown/kit/core'
-import { DOMSerializer } from '@milkdown/kit/prose/model'
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx, remarkPluginsCtx, parserCtx } from '@milkdown/kit/core'
+import { DOMSerializer, Slice } from '@milkdown/kit/prose/model'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { emit } from '@tauri-apps/api/event'
 import remarkBreaks from 'remark-breaks'
@@ -368,4 +368,16 @@ export function scrollEditorToRange(from: number, to: number) {
   tr.scrollIntoView()
   view.dispatch(tr)
   view.focus()
+}
+
+export function replaceRangeWithMarkdown(from: number, to: number, markdown: string, tr: any): void {
+  if (!editorInstance) return
+  editorInstance.action((ctx) => {
+    const parser = ctx.get(parserCtx)
+    const parsedDoc = parser(markdown)
+    if (parsedDoc) {
+      const slice = Slice.maxOpen(parsedDoc.content)
+      tr.replace(from, to, slice)
+    }
+  })
 }
